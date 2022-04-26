@@ -10,12 +10,13 @@
 ;; type Expr  = (Eof)
 ;;            | (Quote Datum)
 ;;            | (Prim Op (Listof Expr))
+;;            | (DCons DC (Listof Id) (Listof Expr))
 ;;            | (If Expr Expr Expr)
 ;;            | (Begin Expr Expr)
 ;;            | (Let Id Expr Expr)
 ;;            | (Var Id)
 ;;            | (Match Expr (Listof Pat) (Listof Expr))
-;;            | (App Expr (Listof Expr))
+;;            | (App Expr (Listof Id) (Listof Expr))
 ;;            | (Lam Id (Listof Id) Expr)
 ;; type Datum = Integer
 ;;            | Char
@@ -31,19 +32,20 @@
 ;; type Op1   = 'add1 | 'sub1 | 'zero?
 ;;            | 'char? | 'integer->char | 'char->integer
 ;;            | 'write-byte | 'eof-object?
-;;            | 'box | 'car | 'cdr | 'unbox
+;;            | 'car | 'cdr | 'unbox
 ;;            | 'empty? | 'cons? | 'box?
 ;;            | 'vector? | 'vector-length
 ;;            | 'string? | 'string-length
 ;;            | 'symbol? | 'symbol->string
 ;;            | 'string->symbol | 'string->uninterned-symbol
 ;; type Op2   = '+ | '- | '< | '=
-;;            | 'cons
-;;            | 'make-vector | 'vector-ref
-;;            | 'make-string | 'string-ref
+;;            | 'vector-ref | 'string-ref
 ;;            | 'struct?
 ;; type Op3   = 'vector-set! | 'struct-ref
-;; type OpN   = 'make-struct
+;; type DC    = DC1 | DC2 | DCN
+;; type DC1   = 'box
+;; type DC2   = 'cons | 'make-vector | 'make-string
+;; type DCN   = 'make-struct
 ;; type Pat   = (PVar Id)
 ;;            | (PWild)
 ;;            | (PLit Lit)
@@ -60,11 +62,12 @@
 
 (struct Eof   ()           #:prefab)
 (struct Prim  (p es)       #:prefab)
+(struct DCons (c fs es)    #:prefab)
 (struct If    (e1 e2 e3)   #:prefab)
 (struct Begin (e1 e2)      #:prefab)
 (struct Let   (x e1 e2)    #:prefab)
 (struct Var   (x)          #:prefab)
-(struct App   (e es)       #:prefab)
+(struct App   (e fs es)    #:prefab)
 (struct Lam   (f xs e)     #:prefab)
 (struct Quote (d)          #:prefab)
 (struct Match (e ps es)    #:prefab)

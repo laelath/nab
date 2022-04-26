@@ -30,7 +30,9 @@
 ;; Id [Listof Id] -> [Listof Defn]
 (define (make-struct-defn-construct n flds)
   (Defn n flds
-    (Prim 'make-struct (cons (Quote n) (map Var flds)))))
+    (DCons 'make-struct
+           (cons (gensym 'thunk) (map (λ (_) (gensym 'thunk)) flds))
+           (cons (Quote n) (map Var flds)))))
 
 ;; Id -> [Listof Defn]
 (define (make-struct-defn-predicate n)
@@ -75,6 +77,9 @@
     [(list (? (op? op2) p2) e1 e2) (Prim p2 (list (parse-e e1) (parse-e e2)))]
     [(list (? (op? op3) p3) e1 e2 e3)
      (Prim p3 (list (parse-e e1) (parse-e e2) (parse-e e3)))]
+    [(list (? (dc? dc1) c1) e)     (DCons c1 (gensym 'thunk) (list (parse-e e)))]
+    [(list (? (dc? dc2) c2) e1 e2) (DCons c2 (list (gensym 'thunk) (gensym 'thunk))
+                                          (list (parse-e e1) (parse-e e2)))]
     [(list 'begin e1 e2)
      (Begin (parse-e e1) (parse-e e2))]
     [(list 'if e1 e2 e3)
@@ -89,7 +94,7 @@
          (Lam (gensym 'lambda) xs (parse-e e))
          (error "parse lambda error"))]
     [(cons e es)
-     (App (parse-e e) (map parse-e es))]
+     (App (parse-e e) (map (λ (_) (gensym 'thunk)) es) (map parse-e es))]
     [_ (error "Parse error" s)]))
 
 (define (parse-match e ms)
@@ -141,11 +146,11 @@
 (define op1
   '(add1 sub1 zero? char? write-byte eof-object?
          integer->char char->integer
-         box unbox empty? cons? box? car cdr
+         unbox empty? cons? box? car cdr
          vector? vector-length string? string-length
          symbol? symbol->string string->symbol string->uninterned-symbol))
 (define op2
-  '(+ - < = cons eq? make-vector vector-ref make-string string-ref))
+  '(+ - < = eq? vector-ref string-ref))
 (define op3
   '(vector-set!))
 
@@ -153,3 +158,11 @@
   (λ (x)
     (and (symbol? x)
          (memq x ops))))
+
+(define dc1 '(box))
+(define dc2 '(cons make-vector make-string))
+
+(define (dc? dcs)
+  (λ (x)
+    (and (symbol? x)
+         (memq x dcs))))

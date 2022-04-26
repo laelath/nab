@@ -73,7 +73,7 @@
      (append (literals-e e1) (literals-e e2))]
     [(Let x e1 e2)
      (append (literals-e e1) (literals-e e2))]
-    [(App e1 es)
+    [(App e1 fs es)
      (append (literals-e e1) (append-map literals-e es))]
     [(Lam f xs e)
      (literals-e e)]

@@ -25,7 +25,7 @@
     [(If e1 e2 e3)      (compile-if e1 e2 e3 c t?)]
     [(Begin e1 e2)      (compile-begin e1 e2 c t?)]
     [(Let x e1 e2)      (compile-let x e1 e2 c t?)]
-    [(App e es)         (compile-app e es c t?)]
+    [(App e fs es)      (compile-app e es c t?)]
     [(Lam f xs e)       (compile-lam f xs e c)]
     [(Match e ps es)    (compile-match e ps es c t?)]))
 
