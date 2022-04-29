@@ -22,7 +22,8 @@
 (define (force-thunk)
   (let ([l (gensym 'thunk_resolved)]
         [lr (gensym 'thunk_ret)])
-    (seq (Mov r8 rax)
+    (seq (% "thunk forcing")
+         (Mov r8 rax)
          (Mov rax (Offset rax 0))
          (Cmp rax val-thunk)
          (Jne l)

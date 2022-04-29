@@ -145,7 +145,8 @@
 ;; TODO: simple opt, if a var or quote then don't create a new thunk
 (define (compile-thunk f e c)
   (let ([fvs (fv e)])
-    (seq (Mov rax val-thunk)
+    (seq (% "thunk creation")
+         (Mov rax val-thunk)
          (Mov (Offset rbx 0) rax)
          (Lea rax (symbol->label f))
          (Mov (Offset rbx 8) rax)
@@ -154,7 +155,8 @@
          (Add rbx (* 8 (+ 2 (length fvs)))))))
 
 (define make-resolved-thunk
-  (seq (Mov (Offset rbx 0) rax)
+  (seq (% "resolved thunk creation")
+       (Mov (Offset rbx 0) rax)
        (Mov rax rbx)
        (Add rbx 8)))
 

@@ -32,9 +32,9 @@
 ;; Compile the closures for ds and push them on the stack
 (define (compile-defines-values ds)
   (seq (alloc-defines ds 0)
-       (init-defines ds (reverse (define-ids ds)) 8)
+       (init-defines ds (reverse (define-ids ds)) 16)
        (add-rbx-defines ds 0)
-       (thunkify-defines (length ds))))
+       #;(thunkify-defines (length ds))))
 
 (define (thunkify-defines n)
   (if (= n 0)
@@ -54,12 +54,14 @@
     [(cons (Defn f xs e) ds)
      (let ((fvs (fv (Lam f xs e))))
        (seq (Lea rax (symbol->label f))
-            (Mov (Offset rbx off) rax)
+            (Mov (Offset rbx (+ off 8)) rax)
             (Mov rax rbx)
             (Add rax off)
-            (Or rax type-proc)
             (Push rax)
-            (alloc-defines ds (+ off (* 8 (add1 (length fvs)))))))]))
+            (Add rax 8)
+            (Or rax type-proc)
+            (Mov (Offset rbx off) rax)
+            (alloc-defines ds (+ off (* 8 (+ 2 (length fvs)))))))]))
 
 ;; Defns CEnv Int -> Asm
 ;; Initialize the environment for each closure for ds at given offset
@@ -69,7 +71,7 @@
     [(cons (Defn f xs e) ds)
      (let ((fvs (fv (Lam f xs e))))
        (seq (free-vars-to-heap fvs c off)
-            (init-defines ds c (+ off (* 8 (add1 (length fvs)))))))]))
+            (init-defines ds c (+ off (* 8 (+ 2 (length fvs)))))))]))
 
 ;; Defns Int -> Asm
 ;; Compute adjustment to rbx for allocation of all ds
@@ -77,4 +79,4 @@
   (match ds
     ['() (Add rbx (* n 8))]
     [(cons (Defn f xs e) ds)
-     (add-rbx-defines ds (+ n (add1 (length (fv (Lam f xs e))))))]))
+     (add-rbx-defines ds (+ n (+ 2 (length (fv (Lam f xs e))))))]))
