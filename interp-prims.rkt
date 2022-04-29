@@ -32,7 +32,7 @@
     [(list 'vector-length (? vector? v))    (vector-length v)]
     [(list 'string? v)                      (string? v)]
     [(list 'string-length (? string? v))    (string-length v)]
-    [(list 'symbol? v)                      (symbol? v)]    
+    [(list 'symbol? v)                      (symbol? v)]
     [(list 'symbol->string (? symbol? v))   (symbol->string v)]
     [(list 'string->symbol (? string? v))   (string->symbol v)]
     [(list 'string->uninterned-symbol (? string? v))
@@ -41,9 +41,9 @@
     [(list '+ (? integer? v1) (? integer? v2))  (+ v1 v2)]
     [(list '- (? integer? v1) (? integer? v2))  (- v1 v2)]
     [(list '< (? integer? v1) (? integer? v2))  (< v1 v2)]
-    [(list '= (? integer? v1) (? integer? v2))  (= v1 v2)]    
+    [(list '= (? integer? v1) (? integer? v2))  (= v1 v2)]
     [(list 'cons v1 v2)                   (cons v1 v2)]
-    [(list 'eq? v1 v2)                    (eq? v1 v2)]    
+    [(list 'eq? v1 v2)                    (eq? v1 v2)]
     [(list 'make-vector (? integer? v1) v2)
      (if (<= 0 v1)
          (make-vector v1 v2)

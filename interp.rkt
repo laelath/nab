@@ -38,7 +38,7 @@
     [(Prim p es)
      (match (interp-env* es r ds)
        ['err 'err]
-       [vs (interp-prim p vs)])]    
+       [vs (interp-prim p vs)])]
     [(If p e1 e2)
      (match (interp-env p r ds)
        ['err 'err]
@@ -53,7 +53,7 @@
     [(Let x e1 e2)
      (match (interp-env e1 r ds)
        ['err 'err]
-       [v (interp-env e2 (ext r x v) ds)])]
+       [v (interp-env e2 (extend-env r x v) ds)])]
     [(Lam _ xs e)
      (λ vs
        ; check arity matches
@@ -89,7 +89,7 @@
 (define (interp-match-pat p v r)
   (match p
     [(PWild) r]
-    [(PVar x) (ext r x v)]
+    [(PVar x) (extend-env r x v)]
     [(PSymb s) (and (eq? s v) r)]
     [(PStr s) (and (string? v) (string=? s v) r)]
     [(PLit l) (and (eqv? l v) r)]
@@ -129,7 +129,7 @@
 
 ;; Id Env [Listof Defn] -> Answer
 (define (interp-var x r ds)
-  (match (lookup r x)
+  (match (lookup-env r x)
     ['err (match (defns-lookup ds x)
             [(Defn f xs e) (interp-env (Lam f xs e) '() ds)]
             [#f 'err])]

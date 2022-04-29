@@ -1,15 +1,15 @@
 #lang racket
-(provide lookup ext)
+(provide lookup-env extend-env)
 
-;; Env Variable -> Answer
-(define (lookup env x)
+;; Env Variable -> Address
+(define (lookup-env env x)
   (match env
     ['() 'err]
     [(cons (list y i) env)
      (match (symbol=? x y)
        [#t i]
-       [#f (lookup env x)])]))
+       [#f (lookup-env env x)])]))
 
-;; Env Variable Value -> Value
-(define (ext r x i)
+;; Env Variable Address -> Value
+(define (extend-env r x i)
   (cons (list x i) r))

@@ -32,7 +32,7 @@
 ;; Expr Env Defns -> Answer
 (define (interp-env e r ds)
   (match e
-    [(Quote d)  d]    
+    [(Quote d)  d]
     [(Eof)    eof]
     [(Var x)  (interp-var x r ds)]
     [(Prim 'void '()) (void)]
@@ -56,7 +56,7 @@
     [(Let x e1 e2)
      (match (interp-env e1 r ds)
        ['err 'err]
-       [v (interp-env e2 (ext r x v) ds)])]
+       [v (interp-env e2 (extend-env r x v) ds)])]
     [(Lam _ xs e)
      (Closure xs e r)]
     [(App e es)
@@ -67,9 +67,9 @@
           ['err 'err]
           [vs
            (match f
-  	     [(Closure xs e r)        
+  	     [(Closure xs e r)
               ; check arity matches
-              (if (= (length xs) (length vs))           
+              (if (= (length xs) (length vs))
                   (interp-env e (append (zip xs vs) r) ds)
                   'err)]
              [_ 'err])])])]
@@ -92,7 +92,7 @@
 (define (interp-match-pat p v r)
   (match p
     [(PWild) r]
-    [(PVar x) (ext r x v)]
+    [(PVar x) (extend-env r x v)]
     [(PSymb s) (and (eq? s v) r)]
     [(PStr s) (and (string? v) (string=? s v) r)]
     [(PLit l) (and (eqv? l v) r)]
@@ -132,7 +132,7 @@
 
 ;; Id Env [Listof Defn] -> Answer
 (define (interp-var x r ds)
-  (match (lookup r x)
+  (match (lookup-env r x)
     ['err (match (defns-lookup ds x)
             [(Defn f xs e) (interp-env (Lam f xs e) '() ds)]
             [#f 'err])]

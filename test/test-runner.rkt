@@ -365,14 +365,14 @@
               ((eval e1 r) (eval e2 r))]
              [_
               (if (symbol? e)
-                  (lookup r e)
+                  (lookup-env r e)
                   e)]))
-        '(define (lookup r x)
+        '(define (lookup-env r x)
            (match r
              [(cons (cons y v) r)
               (if (eq? x y)
                   v
-                  (lookup r x))]))
+                  (lookup-env r x))]))
         '(eval '(((λ (t)
                     ((λ (f) (t (λ (z) ((f f) z))))
                      (λ (f) (t (λ (z) ((f f) z))))))
