@@ -22,25 +22,36 @@
     [(Eof)              (seq (Mov rax (imm->bits eof)))]
     [(Var x)            (compile-variable x c)]
     [(Prim p es)        (compile-prim p es c)]
+    [(DCons dc fs es)   (compile-dcons dc fs es c)]
     [(If e1 e2 e3)      (compile-if e1 e2 e3 c t?)]
     [(Begin e1 e2)      (compile-begin e1 e2 c t?)]
-    [(Let x e1 e2)      (compile-let x e1 e2 c t?)]
-    [(App e fs es)      (compile-app e es c t?)]
+    [(Let x f e1 e2)    (compile-let x f e1 e2 c t?)]
+    [(App e fs es)      (compile-app e fs es c t?)]
     [(Lam f xs e)       (compile-lam f xs e c)]
     [(Match e ps es)    (compile-match e ps es c t?)]))
 
 ;; Id CEnv -> Asm
 (define (compile-variable x c)
   (match (lookup x c)
-    [#f (error "unbound variable")] ;(seq (Lea rax (symbol->label x)))]
-    [i  (seq (Mov rax (Offset rsp i)))]))
+    [#f (error (format "unbound variable: ~a" x))] ;(seq (Lea rax (symbol->label x)))]
+    [i  (seq (Mov rax (Offset rsp i))
+             (force-thunk))]))
+
+;; TODO: it thinks that all variables are thunks
+;;       even ones that are declared with define
+;;       easiest way is to thunk defined vals
+;;       ... sigh
 
 ;; Op (Listof Expr) CEnv -> Asm
 (define (compile-prim p es c)
-  (seq (compile-es* es c)  
-       (match p
+  (seq (compile-es* es c)
+       (compile-op p)))
+
+(define (compile-dcons dc fs es c)
+  (seq (compile-thunks* fs es c)
+       (match dc
          ['make-struct (compile-make-struct (length es))]
-         [_ (compile-op p)])))
+         [_ (compile-op dc)])))
 
 ;; Expr Expr Expr CEnv Bool -> Asm
 (define (compile-if e1 e2 e3 c t?)
@@ -57,30 +68,32 @@
 
 ;; Expr Expr CEnv Bool -> Asm
 (define (compile-begin e1 e2 c t?)
-  (seq (compile-e e1 c #f)
+  (seq (compile-e e1 c #f) ;; todo: whnfify
        (compile-e e2 c t?)))
 
 ;; Id Expr Expr CEnv Bool -> Asm
-(define (compile-let x e1 e2 c t?)
-  (seq (compile-e e1 c #f)
+(define (compile-let x f e1 e2 c t?)
+  (seq (compile-thunk f e1 c)
        (Push rax)
        (compile-e e2 (cons x c) t?)
        (Add rsp 8)))
 
 ;; Id [Listof Expr] CEnv Bool -> Asm
-(define (compile-app f es c t?)
+(define (compile-app e fs es c t?)
   ;(compile-app-nontail f es c)
   (if t?
-      (compile-app-tail f es c)
-      (compile-app-nontail f es c)))
+      (compile-app-tail e fs es c)
+      (compile-app-nontail e fs es c)))
 
 ;; Expr [Listof Expr] CEnv -> Asm
-(define (compile-app-tail e es c)
-  (seq (compile-es (cons e es) c)
+(define (compile-app-tail e fs es c)
+  (seq (compile-e e c #f)
+       (assert-proc rax)
+       (Push rax)
+       (compile-thunks fs es (cons #f c))
        (move-args (add1 (length es)) (length c))
        (Add rsp (* 8 (length c)))
        (Mov rax (Offset rsp (* 8 (length es))))
-       (assert-proc rax)
        (Xor rax type-proc)
        (Mov rax (Offset rax 0))
        (Jmp rax)))
@@ -97,18 +110,53 @@
 ;; Expr [Listof Expr] CEnv -> Asm
 ;; The return address is placed above the arguments, so callee pops
 ;; arguments and return address is next frame
-(define (compile-app-nontail e es c)
+(define (compile-app-nontail e fs es c)
   (let ((r (gensym 'ret))
         (i (* 8 (length es))))
     (seq (Lea rax r)
          (Push rax)
-         (compile-es (cons e es) (cons #f c))
+         (compile-e e (cons #f c) #f)
+         (assert-proc rax) ; can move assertion up in CBN
+         (Push rax) ; value pushed here is the *forced* proc val
+         (compile-thunks fs es (cons #f (cons #f c)))
          (Mov rax (Offset rsp i))
-         (assert-proc rax)
          (Xor rax type-proc)
          (Mov rax (Offset rax 0)) ; fetch the code label
          (Jmp rax)
          (Label r))))
+
+(define (compile-thunks fs es c)
+  (match* (fs es)
+    [('() '()) (seq)]
+    [((cons f fs) (cons e es))
+     (seq (compile-thunk f e c)
+          (Push rax)
+          (compile-thunks fs es (cons #f c)))]))
+
+(define (compile-thunks* fs es c)
+  (match* (fs es)
+    [((cons f '()) (cons e '()))
+     (compile-thunk f e c)]
+    [((cons f fs) (cons e es))
+     (seq (compile-thunk f e c)
+          (Push rax)
+          (compile-thunks* fs es (cons #f c)))]))
+
+;; TODO: simple opt, if a var or quote then don't create a new thunk
+(define (compile-thunk f e c)
+  (let ([fvs (fv e)])
+    (seq (Mov rax val-thunk)
+         (Mov (Offset rbx 0) rax)
+         (Lea rax (symbol->label f))
+         (Mov (Offset rbx 8) rax)
+         (free-vars-to-heap fvs c 16)
+         (Mov rax rbx)
+         (Add rbx (* 8 (+ 2 (length fvs)))))))
+
+(define make-resolved-thunk
+  (seq (Mov (Offset rbx 0) rax)
+       (Mov rax rbx)
+       (Add rbx 8)))
 
 ;; Id [Listof Id] Expr CEnv -> Asm
 (define (compile-lam f xs e c)
@@ -165,7 +213,7 @@
 ;; [Listof Expr] CEnv -> Asm
 (define (compile-es es c)
   (match es
-    ['() '()]
+    ['() (seq)]
     [(cons e es)
      (seq (compile-e e c #f)
           (Push rax)
@@ -175,7 +223,7 @@
 ;; Like compile-es, but leave last subexpression in rax (if exists)
 (define (compile-es* es c)
   (match es
-    ['() '()]
+    ['() (seq)]
     [(cons e '())
      (compile-e e c #f)]
     [(cons e es)
@@ -214,6 +262,7 @@
             f
             (Label next))])))
 
+;; TODO: patterns, when to force?? idk
 ;; Pat CEnv Symbol -> (list Asm Asm CEnv)
 (define (compile-pattern p cm next)
   (match p

@@ -33,7 +33,18 @@
 (define (compile-defines-values ds)
   (seq (alloc-defines ds 0)
        (init-defines ds (reverse (define-ids ds)) 8)
-       (add-rbx-defines ds 0)))
+       (add-rbx-defines ds 0)
+       (thunkify-defines (length ds))))
+
+(define (thunkify-defines n)
+  (if (= n 0)
+      (seq)
+      (let ([i (* 8 (sub1 n))])
+        (seq (Mov rax (Offset rsp i))
+             (Mov (Offset rbx 0) rax)
+             (Mov (Offset rsp i) rbx)
+             (Add rbx 8)
+             (thunkify-defines (sub1 n))))))
 
 ;; Defns Int -> Asm
 ;; Allocate closures for ds at given offset, but don't write environment yet
@@ -64,6 +75,6 @@
 ;; Compute adjustment to rbx for allocation of all ds
 (define (add-rbx-defines ds n)
   (match ds
-    ['() (seq (Add rbx (* n 8)))]
+    ['() (Add rbx (* n 8))]
     [(cons (Defn f xs e) ds)
      (add-rbx-defines ds (+ n (add1 (length (fv (Lam f xs e))))))]))

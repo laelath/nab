@@ -22,6 +22,7 @@
 (define val-eof    #b1011000)
 (define val-void   #b1111000)
 (define val-empty #b10011000)
+(define val-thunk #b10111000)
 
 (define (bits->value b)
   (cond [(= type-int (bitwise-and b mask-int))

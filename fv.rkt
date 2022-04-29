@@ -11,9 +11,10 @@
   (match e
     [(Var x)            (list x)]
     [(Prim p es)        (append-map fv* es)]
+    [(DCons dc fs es)   (append-map fv* es)]
     [(If e1 e2 e3)      (append (fv* e1) (fv* e2) (fv* e3))]
     [(Begin e1 e2)      (append (fv* e1) (fv* e2))]
-    [(Let x e1 e2)      (append (fv* e1) (remq* (list x) (fv* e2)))]
+    [(Let x f e1 e2)    (append (fv* e1) (remq* (list x) (fv* e2)))]
     [(App e1 fs es)     (append (fv* e1) (append-map fv* es))]
     [(Lam f xs e)       (remq* xs (fv* e))]
     [(Match e ps es)    (append (fv* e) (append-map fv-clause* ps es))]

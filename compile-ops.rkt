@@ -15,6 +15,31 @@
 (define r15 'r15) ; stack pad (non-volatile)
 (define rsp 'rsp) ; stack
 
+;; TODO: making vectors and strings should force the length argument
+;; TODO: making a struct should force the symbol and the length
+
+;; TODO: remove filth
+(define (force-thunk)
+  (let ([l (gensym 'thunk_resolved)]
+        [lr (gensym 'thunk_ret)])
+    (seq (Mov r8 rax)
+         (Mov rax (Offset rax 0))
+         (Cmp rax val-thunk)
+         (Jne l)
+         (Push r8)
+         (Lea r9 lr)
+         (Push r9)   ; push return address
+         (Add r8 8)
+         (Mov rax (Offset r8 0))
+         (Xor r8 type-proc) ; filthy, disgusting hack since thunks are compiled as closures
+         (Push r8)  ; push closure location
+         (Jmp rax)
+         (Label lr)
+         (Pop r8)
+         ;(Xor r8 type-proc) ; disgusting
+         (Mov (Offset r8 0) rax)
+         (Label l))))
+
 ;; Op -> Asm
 (define (compile-op p)
   (match p
@@ -63,15 +88,18 @@
     ['unbox
      (seq (assert-box rax)
           (Xor rax type-box)
-          (Mov rax (Offset rax 0)))]
+          (Mov rax (Offset rax 0))
+          (force-thunk))]
     ['car
      (seq (assert-cons rax)
           (Xor rax type-cons)
-          (Mov rax (Offset rax 8)))]
+          (Mov rax (Offset rax 8))
+          (force-thunk))]
     ['cdr
      (seq (assert-cons rax)
           (Xor rax type-cons)
-          (Mov rax (Offset rax 0)))]
+          (Mov rax (Offset rax 0))
+          (force-thunk))]
     ['empty? (eq-imm '())]
     ['box?
      (type-pred ptr-mask type-box)]
@@ -214,7 +242,7 @@
           (Jl 'raise_error_align)
           (Sal rax 3)
           (Add r8 rax)
-          (Mov rax (Offset r8 8)))]
+          (Mov rax (Offset r8 8)))] ;; TODO: force thunk
 
     ['make-string
      (let ((loop (gensym))
@@ -269,7 +297,7 @@
           (Add r8 rax)
           (Mov 'eax (Offset r8 8))
           (Sal rax char-shift)
-          (Or rax type-char))]
+          (Or rax type-char))] ;; TODO: force thunk
 
     ['struct?
      (let ((f (gensym))
@@ -322,7 +350,7 @@
           (Add r8 1)
           (Sal r8 3)
           (Add rax r8)
-          (Mov rax (Offset rax 0)))]))
+          (Mov rax (Offset rax 0)))])) ;; TODO: force thunk
 
 ;; Nat -> Asm
 ;; Emit instructions for creating a structure of length n

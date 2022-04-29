@@ -20,13 +20,15 @@
 
 ;; Expr -> [Listof Lam]
 ;; List all of the lambda expressions in e
+;; Also gets the expressions that need to be thunked
 (define (lambdas-e e)
   (match e
     [(Prim p es)        (append-map lambdas-e es)]
+    [(DCons dc fs es)   (append (map (λ (f e) (Lam f '() e)) fs es) (append-map lambdas-e es))]
     [(If e1 e2 e3)      (append (lambdas-e e1) (lambdas-e e2) (lambdas-e e3))]
     [(Begin e1 e2)      (append (lambdas-e e1) (lambdas-e e2))]
-    [(Let x e1 e2)      (append (lambdas-e e1) (lambdas-e e2))]
-    [(App e1 fs es)     (append (lambdas-e e1) (append-map lambdas-e es))] ;; TODO: maybe treat thunks as lambdas? (we do have zero arg lambdas after all...)
+    [(Let x f e1 e2)    (cons (Lam f '() e1) (append (lambdas-e e1) (lambdas-e e2)))]
+    [(App e1 fs es)     (append (map (λ (f e) (Lam f '() e)) fs es) (lambdas-e e1) (append-map lambdas-e es))]
     [(Lam f xs e1)      (cons e (lambdas-e e1))]
-    [(Match e ps es)    (append (lambdas-e e) (append-map lambdas-e es))]
+    [(Match e ps es)    (append (lambdas-e e) (append-map lambdas-e es))] ;; TODO: match should thunk its expression
     [_                  '()]))

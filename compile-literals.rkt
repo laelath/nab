@@ -67,11 +67,13 @@
     [(Quote d) (literals-datum d)]
     [(Prim p es)
      (append-map literals-e es)]
+    [(DCons dc fs es)
+     (append-map literals-e es)]
     [(If e1 e2 e3)
      (append (literals-e e1) (literals-e e2) (literals-e e3))]
     [(Begin e1 e2)
      (append (literals-e e1) (literals-e e2))]
-    [(Let x e1 e2)
+    [(Let x f e1 e2)
      (append (literals-e e1) (literals-e e2))]
     [(App e1 fs es)
      (append (literals-e e1) (append-map literals-e es))]

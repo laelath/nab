@@ -85,7 +85,7 @@
     [(list 'if e1 e2 e3)
      (If (parse-e e1) (parse-e e2) (parse-e e3))]
     [(list 'let (list (list (? symbol? x) e1)) e2)
-     (Let x (parse-e e1) (parse-e e2))]
+     (Let x (gensym 'x) (parse-e e1) (parse-e e2))]
     [(cons 'match (cons e ms))
      (parse-match (parse-e e) ms)]
     [(list (or 'lambda 'λ) xs e)
