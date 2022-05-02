@@ -15,7 +15,7 @@
 ;;            | (Begin Expr Expr)
 ;;            | (Let Id Id Expr Expr)
 ;;            | (Var Id)
-;;            | (Match Expr (Listof Pat) (Listof Expr))
+;;            | (Match Id Expr (Listof Pat) (Listof Expr))
 ;;            | (App Expr (Listof Id) (Listof Expr))
 ;;            | (Lam Id (Listof Id) Expr)
 ;; type Datum = Integer
@@ -70,7 +70,7 @@
 (struct App   (e fs es)    #:prefab)
 (struct Lam   (f xs e)     #:prefab)
 (struct Quote (d)          #:prefab)
-(struct Match (e ps es)    #:prefab)
+(struct Match (f e ps es)    #:prefab)
 
 (struct PVar  (x)          #:prefab)
 (struct PWild ()           #:prefab)

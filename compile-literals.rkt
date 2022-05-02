@@ -79,7 +79,7 @@
      (append (literals-e e1) (append-map literals-e es))]
     [(Lam f xs e)
      (literals-e e)]
-    [(Match e ps es)
+    [(Match f e ps es)
      (append (literals-e e) (append-map literals-match-clause ps es))]
     [_ '()]))
 

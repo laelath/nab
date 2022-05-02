@@ -30,5 +30,5 @@
     [(Let x f e1 e2)    (cons (Lam f '() e1) (append (lambdas-e e1) (lambdas-e e2)))]
     [(App e1 fs es)     (append (map (λ (f e) (Lam f '() e)) fs es) (lambdas-e e1) (append-map lambdas-e es))]
     [(Lam f xs e1)      (cons e (lambdas-e e1))]
-    [(Match e ps es)    (append (lambdas-e e) (append-map lambdas-e es))] ;; TODO: match should thunk its expression
+    [(Match f e ps es)  (cons (Lam f '() e) (append (lambdas-e e) (append-map lambdas-e es)))]
     [_                  '()]))

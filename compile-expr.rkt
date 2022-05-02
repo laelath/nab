@@ -28,7 +28,7 @@
     [(Let x f e1 e2)    (compile-let x f e1 e2 c t?)]
     [(App e fs es)      (compile-app e fs es c t?)]
     [(Lam f xs e)       (compile-lam f xs e c)]
-    [(Match e ps es)    (compile-match e ps es c t?)]))
+    [(Match f e ps es)  (compile-match f e ps es c t?)]))
 
 ;; Id CEnv -> Asm
 (define (compile-variable x c)
@@ -234,9 +234,9 @@
           (compile-es* es (cons #f c)))]))
 
 ;; Expr [Listof Pat] [Listof Expr] CEnv Bool -> Asm
-(define (compile-match e ps es c t?)
-  (let ((done (gensym)))
-    (seq (compile-e e c #f)
+(define (compile-match f e ps es c t?)
+  (let ([done (gensym)])
+    (seq (compile-thunk f e c)
          (Push rax) ; save away to be restored by each clause
          (compile-match-clauses ps es (cons #f c) done t?)
          (Jmp 'raise_error_align)
@@ -265,6 +265,8 @@
             (Label next))])))
 
 ;; TODO: patterns, when to force?? idk
+;;       don't force for wild or var
+;;       force for everything else so it can check if it's matched
 ;; Pat CEnv Symbol -> (list Asm Asm CEnv)
 (define (compile-pattern p cm next)
   (match p
@@ -276,7 +278,8 @@
            (cons x cm))]
     [(PStr s)
      (let ((fail (gensym)))
-       (list (seq (Lea rdi (symbol->data-label (string->symbol s)))
+       (list (seq (force-thunk)
+                  (Lea rdi (symbol->data-label (string->symbol s)))
                   (Mov r8 rax)
                   (And r8 ptr-mask)
                   (Cmp r8 type-str)
@@ -294,7 +297,8 @@
              cm))]
     [(PSymb s)
      (let ((fail (gensym)))
-       (list (seq (Lea r9 (Plus (symbol->data-label s) type-symb))
+       (list (seq (force-thunk)
+                  (Lea r9 (Plus (symbol->data-label s) type-symb))
                   (Cmp rax r9)
                   (Jne fail))
              (seq (Label fail)
@@ -303,13 +307,14 @@
              cm))]
     [(PLit l)
      (let ((fail (gensym)))
-       (list (seq (Cmp rax (imm->bits l))
+       (list (seq (force-thunk)
+                  (Cmp rax (imm->bits l))
                   (Jne fail))
              (seq (Label fail)
                   (Add rsp (* 8 (length cm)))
                   (Jmp next))
              cm))]
-    [(PAnd p1 p2)
+    [(PAnd p1 p2) ; TODO: lazy
      (match (compile-pattern p1 (cons #f cm) next)
        [(list i1 f1 cm1)
         (match (compile-pattern p2 cm1 next)
@@ -326,7 +331,8 @@
        [(list i1 f1 cm1)
         (let ((fail (gensym)))
           (list
-           (seq (Mov r8 rax)
+           (seq (force-thunk)
+                (Mov r8 rax)
                 (And r8 ptr-mask)
                 (Cmp r8 type-box)
                 (Jne fail)
@@ -345,7 +351,8 @@
           [(list i2 f2 cm2)
            (let ((fail (gensym)))
              (list
-              (seq (Mov r8 rax)
+              (seq (force-thunk)
+                   (Mov r8 rax)
                    (And r8 ptr-mask)
                    (Cmp r8 type-cons)
                    (Jne fail)
@@ -362,7 +369,7 @@
                    (Add rsp (* 8 (length cm))) ; haven't pushed anything yet
                    (Jmp next))
               cm2))])])]
-    [(PStruct n ps)
+    [(PStruct n ps) ; TODO: lazy
      (match (compile-struct-patterns ps (cons #f cm) next 1 (add1 (length cm)))
        [(list i f cm1)
         (let ((fail (gensym)))

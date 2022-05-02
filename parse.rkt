@@ -99,11 +99,11 @@
 
 (define (parse-match e ms)
   (match ms
-    ['() (Match e '() '())]
+    ['() (Match (gensym 'thunk) e '() '())]
     [(cons (list p r) ms)
      (match (parse-match e ms)
-       [(Match e ps es)
-        (Match e
+       [(Match f e ps es)
+        (Match f e
                (cons (parse-pat p) ps)
                (cons (parse-e r) es))])]))
 
