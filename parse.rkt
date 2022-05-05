@@ -77,7 +77,7 @@
     [(list (? (op? op2) p2) e1 e2) (Prim p2 (list (parse-e e1) (parse-e e2)))]
     [(list (? (op? op3) p3) e1 e2 e3)
      (Prim p3 (list (parse-e e1) (parse-e e2) (parse-e e3)))]
-    [(list (? (dc? dc1) c1) e)     (DCons c1 (gensym 'thunk) (list (parse-e e)))]
+    [(list (? (dc? dc1) c1) e)     (DCons c1 (list (gensym 'thunk)) (list (parse-e e)))]
     [(list (? (dc? dc2) c2) e1 e2) (DCons c2 (list (gensym 'thunk) (gensym 'thunk))
                                           (list (parse-e e1) (parse-e e2)))]
     [(list 'begin e1 e2)

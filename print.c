@@ -33,7 +33,7 @@ void print_result(val_t x)
   case T_EMPTY:
   case T_BOX:
   case T_CONS:
-  case T_VECT:    
+  case T_VECT:
     printf("'");
     print_result_interior(x);
     break;
@@ -76,7 +76,7 @@ void print_result_interior(val_t x)
     break;
   case T_BOX:
     printf("#&");
-    print_result_interior(val_unwrap_box(x)->val);
+    print_result_interior(eval_thunk(val_unwrap_box(x)->val));
     break;
   case T_CONS:
     printf("(");
@@ -88,7 +88,7 @@ void print_result_interior(val_t x)
     break;
   case T_VECT:
     print_vect(val_unwrap_vect(x));
-    break;    
+    break;
   default:
     print_result(x);
   }
@@ -112,19 +112,21 @@ void print_vect(val_vect_t *v)
 
 void print_cons(val_cons_t *cons)
 {
-  print_result_interior(cons->fst);
+  print_result_interior(eval_thunk(cons->fst));
 
-  switch (val_typeof(cons->snd)) {
+  val_t v = eval_thunk(cons->snd);
+
+  switch (val_typeof(v)) {
   case T_EMPTY:
     // nothing
     break;
   case T_CONS:
     printf(" ");
-    print_cons(val_unwrap_cons(cons->snd));
+    print_cons(val_unwrap_cons(v));
     break;
   default:
     printf(" . ");
-    print_result_interior(cons->snd);
+    print_result_interior(v);
     break;
   }
 }

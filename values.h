@@ -25,13 +25,18 @@ typedef enum type_t {
   T_STRUCT,
 } type_t;
 
+typedef struct thunk_t {
+} thunk_t;
+
+val_t eval_thunk(thunk_t *t);
+
 typedef uint32_t val_char_t;
 typedef struct val_box_t {
-  val_t val;
+  thunk_t *val;
 } val_box_t;
 typedef struct val_cons_t {
-  val_t snd;
-  val_t fst;
+  thunk_t *snd;
+  thunk_t *fst;
 } val_cons_t;
 typedef struct val_vect_t {
   uint64_t len;

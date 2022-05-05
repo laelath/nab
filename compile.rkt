@@ -8,6 +8,7 @@
          "compile-define.rkt"
          "compile-expr.rkt"
          "compile-literals.rkt"
+         (except-in "compile-ops.rkt" rax rbx rsp rdi)
          a86/ast)
 
 ;; Registers used
@@ -22,13 +23,21 @@
   (match p
     [(Prog ds e)
      (prog (externs)
+           (Global 'eval_thunk)
+           (Label 'eval_thunk)
+           (Mov rbx (Offset 'heap_save 0))
+           (Mov rax rdi)
+           (force-thunk)
+           (Mov (Offset 'heap_save 0) rbx) ;; save heap pointer
+           (Ret)
            (Global 'entry)
            (Label 'entry)
            (Mov rbx rdi) ; recv heap pointer
            (init-symbol-table p)
            (compile-defines-values ds)
-           (compile-e e (reverse (define-ids ds)) #t)
+           (compile-e e (reverse (define-ids ds)) #f)
            (Add rsp (* 8 (length ds))) ;; pop function definitions
+           (Mov (Offset 'heap_save 0) rbx) ;; save heap pointer
            (Ret)
            (compile-defines ds)
            (compile-lambda-defines (lambdas p))
@@ -36,6 +45,8 @@
            pad-stack
            (Call 'raise_error)
            (Data)
+           (Label 'heap_save)
+           (Dq 0)
            (compile-literals p))]))
 
 (define (externs)
