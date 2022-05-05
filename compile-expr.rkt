@@ -37,11 +37,6 @@
     [i  (seq (Mov rax (Offset rsp i))
              (force-thunk))]))
 
-;; TODO: it thinks that all variables are thunks
-;;       even ones that are declared with define
-;;       easiest way is to thunk defined vals
-;;       ... sigh
-
 ;; Op (Listof Expr) CEnv -> Asm
 (define (compile-prim p es c)
   (seq (compile-es* es c)
@@ -144,15 +139,19 @@
 
 ;; TODO: simple opt, if a var or quote then don't create a new thunk
 (define (compile-thunk f e c)
-  (let ([fvs (fv e)])
-    (seq (% "thunk creation")
-         (Mov rax val-thunk)
-         (Mov (Offset rbx 0) rax)
-         (Lea rax (symbol->label f))
-         (Mov (Offset rbx 8) rax)
-         (free-vars-to-heap fvs c 16)
-         (Mov rax rbx)
-         (Add rbx (* 8 (+ 2 (length fvs)))))))
+  (match e
+    [(Var x) (Mov rax (Offset rsp (lookup x c)))]
+    [(Quote d) (seq (compile-datum d)
+                    make-resolved-thunk)] ;; TODO: can create a single thunk for this data
+    [_ (let ([fvs (fv e)])
+         (seq (% "thunk creation")
+              (Mov rax val-thunk)
+              (Mov (Offset rbx 0) rax)
+              (Lea rax (symbol->label f))
+              (Mov (Offset rbx 8) rax)
+              (free-vars-to-heap fvs c 16)
+              (Mov rax rbx)
+              (Add rbx (* 8 (+ 2 (length fvs))))))]))
 
 (define make-resolved-thunk
   (seq (% "resolved thunk creation")
@@ -264,9 +263,6 @@
             f
             (Label next))])))
 
-;; TODO: patterns, when to force?? idk
-;;       don't force for wild or var
-;;       force for everything else so it can check if it's matched
 ;; Pat CEnv Symbol -> (list Asm Asm CEnv)
 (define (compile-pattern p cm next)
   (match p
@@ -369,12 +365,13 @@
                    (Add rsp (* 8 (length cm))) ; haven't pushed anything yet
                    (Jmp next))
               cm2))])])]
-    [(PStruct n ps) ; TODO: lazy
+    [(PStruct n ps)
      (match (compile-struct-patterns ps (cons #f cm) next 1 (add1 (length cm)))
        [(list i f cm1)
         (let ((fail (gensym)))
           (list
            (seq (%%% "struct")
+                (force-thunk)
                 (Mov r8 rax)
                 (And r8 ptr-mask)
                 (Cmp r8 type-struct)

@@ -54,9 +54,12 @@
 (define (compile-datum-box c)
   (match (compile-quoted c)
     [(cons l1 is1)
-     (let ((l (gensym 'box)))
-       (cons (Plus l type-box)
-             (seq (Label l)
+     (let ([l (gensym 'box)]
+           [lt (gensym 'box_thunk)])
+       (cons (Plus lt type-box)
+             (seq (Label lt)
+                  (Dq l)
+                  (Label l)
                   (Dq l1)
                   is1)))]))
 
@@ -66,10 +69,16 @@
     [(cons l1 is1)
      (match (compile-quoted c2)
        [(cons l2 is2)
-        (let ((l (gensym 'cons)))
+        (let ([l (gensym 'cons)]
+              [lta (gensym 'cons_thunk_car)]
+              [ltd (gensym 'cons_thunk_cdr)])
           (cons (Plus l type-cons)
                 (seq (Label l)
+                     (Dq ltd)
+                     (Dq lta)
+                     (Label ltd)
                      (Dq l2)
+                     (Label lta)
                      (Dq l1)
                      is1
                      is2)))])]))

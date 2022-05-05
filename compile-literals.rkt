@@ -6,6 +6,8 @@
 
 (define rdi 'rdi)
 
+;; TODO: things like cons need to have another layer of indirection
+
 ;; Prog -> Asm
 (define (compile-literals p)
   (append-map compile-literal (literals p)))
