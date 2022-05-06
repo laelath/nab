@@ -11,11 +11,12 @@
 (define r8  'r8)  ; scratch
 (define r9  'r9)  ; scratch
 (define r10 'r10) ; scratch
+(define r11 'r11) ; scratch
 (define r12 'r12) ; save across call to memcpy
 (define r15 'r15) ; stack pad (non-volatile)
 (define rsp 'rsp) ; stack
 
-;; TODO: making vectors and strings should force the length argument
+;; TODO: making strings should force the length argument
 
 ;; TODO: remove filth
 (define (force-thunk)
@@ -78,7 +79,52 @@
        (Add rbx 16)
        (Ret)
        (Label 'strictify_vector)
+       (Cmp r8 type-vect)
+       (Jne 'strictify_string)
        ;; vector
+       (Xor rax type-vect)
+       (Cmp rax 0)
+       (Jne 'strictify_vector_nontriv)
+       (Xor rax type-vect)
+       (Ret)
+       (Label 'strictify_vector_nontriv)
+       (Mov r8 (Offset rax 0))
+       (Mov (Offset rbx 0) r8)
+       (Push rbx)
+       (Add rbx 8)
+       (Mov r10 rbx)
+       (Sal r8 3)
+       (Add rbx r8)
+       (Xor r9 r9)
+       (Mov r11 rax)
+       (Add r11 8)
+       ;; r8 - length
+       ;; r9 - index
+       ;; r10 - strict vector start
+       ;; r11 - lazy vector start
+       (Label 'strictify_vector_loop)
+       (Mov r12 r11)
+       (Add r12 r9)
+       (Mov rax (Offset r12 0))
+       (Push r8)
+       (Push r9)
+       (Push r10)
+       (Push r11)
+       (force-thunk)
+       (Call 'strictify)
+       (Pop r11)
+       (Pop r10)
+       (Pop r9)
+       (Pop r8)
+       (Mov r12 r10)
+       (Add r12 r9)
+       (Mov (Offset r12 0) rax)
+       (Add r9 8)
+       (Cmp r8 r9)
+       (Jne 'strictify_vector_loop)
+       (Pop rax)
+       (Xor rax type-vect)
+       (Ret)
        (Label 'strictify_string)
        ;; string
        (Label 'stricify_struct)
@@ -290,7 +336,8 @@
           (Jl 'raise_error_align)
           (Sal rax 3)
           (Add r8 rax)
-          (Mov rax (Offset r8 8)))] ;; TODO: force thunk
+          (Mov rax (Offset r8 8))
+          (force-thunk))]
 
     ['make-string
      (let ((loop (gensym))

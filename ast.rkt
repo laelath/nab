@@ -70,7 +70,9 @@
 (struct App   (e fs es)    #:prefab)
 (struct Lam   (f xs e)     #:prefab)
 (struct Quote (d)          #:prefab)
-(struct Match (f e ps es)    #:prefab)
+(struct Match (f e ps es)  #:prefab)
+
+(struct VSet  (e1 e2 f e3) #:prefab)
 
 (struct PVar  (x)          #:prefab)
 (struct PWild ()           #:prefab)

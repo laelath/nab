@@ -12,6 +12,7 @@
     [(Var x)            (list x)]
     [(Prim p es)        (append-map fv* es)]
     [(DCons dc fs es)   (append-map fv* es)]
+    [(VSet e1 e2 f e3)  (append (fv* e1) (fv* e2) (fv* e3))]
     [(If e1 e2 e3)      (append (fv* e1) (fv* e2) (fv* e3))]
     [(Begin e1 e2)      (append (fv* e1) (fv* e2))]
     [(Let x f e1 e2)    (append (fv* e1) (remq* (list x) (fv* e2)))]

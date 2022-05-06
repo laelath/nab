@@ -23,6 +23,7 @@
     [(Var x)            (compile-variable x c)]
     [(Prim p es)        (compile-prim p es c)]
     [(DCons dc fs es)   (compile-dcons dc fs es c)]
+    [(VSet e1 e2 f e3)  (compile-vector-set! e1 e2 f e3 c)]
     [(If e1 e2 e3)      (compile-if e1 e2 e3 c t?)]
     [(Begin e1 e2)      (compile-begin e1 e2 c t?)]
     [(Let x f e1 e2)    (compile-let x f e1 e2 c t?)]
@@ -52,8 +53,23 @@
                   (Push rax)
                   (compile-thunks* fs es (cons #f c)))])
           (compile-make-struct (length es)))]
+    ['make-vector
+     (match-let ([(list _ f) fs]
+                 [(list e1 e2) es])
+       (seq (compile-e e1 c #f)
+            (Push rax)
+            (compile-thunk f e2 (cons #f c))
+            (compile-op 'make-vector)))]
     [_ (seq (compile-thunks* fs es c)
             (compile-op dc))]))
+
+(define (compile-vector-set! e1 e2 f e3 c)
+  (seq (compile-e e1 c #f)
+       (Push rax)
+       (compile-e e2 (cons #f c) #f)
+       (Push rax)
+       (compile-thunk f e3 (cons #f (cons #f c)))
+       (compile-op 'vector-set!)))
 
 ;; Expr Expr Expr CEnv Bool -> Asm
 (define (compile-if e1 e2 e3 c t?)
@@ -144,7 +160,6 @@
           (Push rax)
           (compile-thunks* fs es (cons #f c)))]))
 
-;; TODO: simple opt, if a var or quote then don't create a new thunk
 (define (compile-thunk f e c)
   (match e
     [(Var x) (Mov rax (Offset rsp (lookup x c)))]
