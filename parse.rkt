@@ -31,7 +31,7 @@
 (define (make-struct-defn-construct n flds)
   (Defn n flds
     (DCons 'make-struct
-           (cons (gensym 'thunk) (map (λ (_) (gensym 'thunk)) flds))
+           (cons #f (map (λ (_) (gensym 'thunk)) flds))
            (cons (Quote n) (map Var flds)))))
 
 ;; Id -> [Listof Defn]

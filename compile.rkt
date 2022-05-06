@@ -19,17 +19,10 @@
 ;; type CEnv = [Listof Id]
 
 ;; Prog -> Asm
-(define (compile p)
+(define (compile p [mode 'interp])
   (match p
     [(Prog ds e)
      (prog (externs)
-           (Global 'eval_thunk)
-           (Label 'eval_thunk)
-           (Mov rbx (Offset 'heap_save 0))
-           (Mov rax rdi)
-           (force-thunk)
-           (Mov (Offset 'heap_save 0) rbx) ;; save heap pointer
-           (Ret)
            (Global 'entry)
            (Label 'entry)
            (Mov rbx rdi) ; recv heap pointer
@@ -37,13 +30,25 @@
            (compile-defines-values ds)
            (compile-e e (reverse (define-ids ds)) #f)
            (Add rsp (* 8 (length ds))) ;; pop function definitions
-           (Mov (Offset 'heap_save 0) rbx) ;; save heap pointer
+           (match mode
+             ['interp (Call 'strictify)] ;; call strictify if returning a racket value
+             ['file (Mov (Offset 'heap_save 0) rbx)]) ;; save heap pointer if a compiled file
            (Ret)
            (compile-defines ds)
            (compile-lambda-defines (lambdas p))
            (Label 'raise_error_align)
            pad-stack
            (Call 'raise_error)
+           (match mode
+             ['interp strictify] ;; strictify only needed for interp mode
+             ['file (seq)])
+           (Global 'eval_thunk)
+           (Label 'eval_thunk)
+           (Mov rbx (Offset 'heap_save 0))
+           (Mov rax rdi)
+           (force-thunk)
+           (Mov (Offset 'heap_save 0) rbx) ;; save heap pointer
+           (Ret)
            (Data)
            (Label 'heap_save)
            (Dq 0)

@@ -16,7 +16,6 @@
 (define rsp 'rsp) ; stack
 
 ;; TODO: making vectors and strings should force the length argument
-;; TODO: making a struct should force the symbol and the length
 
 ;; TODO: remove filth
 (define (force-thunk)
@@ -37,9 +36,57 @@
          (Jmp rax)
          (Label lr)
          (Pop r8)
-         ;(Xor r8 type-proc) ; disgusting
          (Mov (Offset r8 0) rax)
          (Label l))))
+
+(define strictify
+  (seq (Label 'strictify)
+       (Mov r8 rax)
+       (And r8 ptr-mask)
+       (Cmp r8 type-box)
+       (Jne 'strictify_cons)
+       ;; box
+       (Xor rax type-box)
+       (Mov rax (Offset rax 0))
+       (force-thunk)
+       (Call 'strictify)
+       (Mov (Offset rbx 0) rax)
+       (Mov rax rbx)
+       (Xor rax type-box)
+       (Add rbx 8)
+       (Ret)
+       (Label 'strictify_cons)
+       (Cmp r8 type-cons)
+       (Jne 'strictify_vector)
+       ;; cons
+       (Xor rax type-cons)
+       (Mov r8 (Offset rax 0))
+       (Push r8) ;; push cdr thunk onto stack
+       (Mov rax (Offset rax 8)) ;; mov car thunk into rax
+       (force-thunk)
+       (Call 'strictify)
+       (Pop r8)
+       (Push rax)
+       (Mov rax r8)
+       (force-thunk)
+       (Call 'strictify)
+       (Mov (Offset rbx 0) rax)
+       (Pop rax)
+       (Mov (Offset rbx 8) rax)
+       (Mov rax rbx)
+       (Xor rax type-cons)
+       (Add rbx 16)
+       (Ret)
+       (Label 'strictify_vector)
+       ;; vector
+       (Label 'strictify_string)
+       ;; string
+       (Label 'stricify_struct)
+       ;; struct
+       ;; believe it or not - nothing to do here
+       ;; structs are only read into (struct-val)
+       (Label 'strictify_done)
+       (Ret)))
 
 ;; Op -> Asm
 (define (compile-op p)
@@ -351,7 +398,8 @@
           (Add r8 1)
           (Sal r8 3)
           (Add rax r8)
-          (Mov rax (Offset rax 0)))])) ;; TODO: force thunk
+          (Mov rax (Offset rax 0))
+          (force-thunk))]))
 
 ;; Nat -> Asm
 ;; Emit instructions for creating a structure of length n

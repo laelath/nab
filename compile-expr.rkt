@@ -43,10 +43,17 @@
        (compile-op p)))
 
 (define (compile-dcons dc fs es c)
-  (seq (compile-thunks* fs es c)
-       (match dc
-         ['make-struct (compile-make-struct (length es))]
-         [_ (compile-op dc)])))
+  (match dc
+    ['make-struct
+     (seq (match* (fs es)
+            [(_ (list e)) (compile-e e c #f)]
+            [((cons _ fs) (cons e es))
+             (seq (compile-e e c #f)
+                  (Push rax)
+                  (compile-thunks* fs es (cons #f c)))])
+          (compile-make-struct (length es)))]
+    [_ (seq (compile-thunks* fs es c)
+            (compile-op dc))]))
 
 ;; Expr Expr Expr CEnv Bool -> Asm
 (define (compile-if e1 e2 e3 c t?)
@@ -142,7 +149,7 @@
   (match e
     [(Var x) (Mov rax (Offset rsp (lookup x c)))]
     [(Quote d) (seq (compile-datum d)
-                    make-resolved-thunk)] ;; TODO: can create a single thunk for this data
+                    make-resolved-thunk)]
     [_ (let ([fvs (fv e)])
          (seq (% "thunk creation")
               (Mov rax val-thunk)
