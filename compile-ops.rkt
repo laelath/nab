@@ -110,7 +110,6 @@
        (Push r9)
        (Push r10)
        (Push r11)
-       (force-thunk)
        (Call 'strictify)
        (Pop r11)
        (Pop r10)
@@ -120,8 +119,8 @@
        (Add r12 r9)
        (Mov (Offset r12 0) rax)
        (Add r9 8)
-       (Cmp r8 r9)
-       (Jne 'strictify_vector_loop)
+       (Cmp r9 r8)
+       (Jl 'strictify_vector_loop)
        (Pop rax)
        (Xor rax type-vect)
        (Ret)
@@ -336,8 +335,7 @@
           (Jl 'raise_error_align)
           (Sal rax 3)
           (Add r8 rax)
-          (Mov rax (Offset r8 8))
-          (force-thunk))]
+          (Mov rax (Offset r8 8)))]
 
     ['make-string
      (let ((loop (gensym))

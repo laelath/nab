@@ -25,7 +25,6 @@
   (match e
     [(Prim p es)        (append-map lambdas-e es)]
     [(DCons dc fs es)   (append (thunk-lambdas fs es) (append-map lambdas-e es))]
-    [(VSet e1 e2 f e3)  (append (thunk-lambdas (list f) (list e3)) (lambdas-e e1) (lambdas-e e2) (lambdas-e e3))]
     [(If e1 e2 e3)      (append (lambdas-e e1) (lambdas-e e2) (lambdas-e e3))]
     [(Begin e1 e2)      (append (lambdas-e e1) (lambdas-e e2))]
     [(Let x f e1 e2)    (append (thunk-lambdas (list f) (list e1)) (append (lambdas-e e1) (lambdas-e e2)))]

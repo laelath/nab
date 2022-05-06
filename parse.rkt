@@ -76,8 +76,7 @@
     [(list (? (op? op1) p1) e)     (Prim p1 (list (parse-e e)))]
     [(list (? (op? op2) p2) e1 e2) (Prim p2 (list (parse-e e1) (parse-e e2)))]
     [(list (? (op? op3) p3) e1 e2 e3)
-     #;(Prim p3 (list (parse-e e1) (parse-e e2) (parse-e e3)))
-     (VSet (parse-e e1) (parse-e e2) (gensym 'thunk) (parse-e e3))]
+     (Prim p3 (list (parse-e e1) (parse-e e2) (parse-e e3)))]
     [(list (? (dc? dc1) c1) e)     (DCons c1 (list (gensym 'thunk)) (list (parse-e e)))]
     [(list (? (dc? dc2) c2) e1 e2) (DCons c2 (list (gensym 'thunk) (gensym 'thunk))
                                           (list (parse-e e1) (parse-e e2)))]
@@ -151,7 +150,7 @@
          vector? vector-length string? string-length
          symbol? symbol->string string->symbol string->uninterned-symbol))
 (define op2
-  '(+ - < = eq? vector-ref string-ref))
+  '(+ - < = eq? make-vector vector-ref make-string string-ref))
 (define op3
   '(vector-set!))
 
@@ -161,7 +160,7 @@
          (memq x ops))))
 
 (define dc1 '(box))
-(define dc2 '(cons make-vector make-string))
+(define dc2 '(cons))
 
 (define (dc? dcs)
   (λ (x)
