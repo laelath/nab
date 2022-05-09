@@ -10,6 +10,6 @@
        [#t i]
        [#f (lookup-env env x)])]))
 
-;; Env Variable Address -> Value
+;; Env Variable Address -> Env
 (define (extend-env r x i)
   (cons (list x i) r))
