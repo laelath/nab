@@ -53,40 +53,28 @@
                              #:matching e
                              ds)
   [(Quote d)
-   ;; (! (displayln (format "Quote: ~a" d)))
    (return d)]
   [(Eof)
-   ;; (! (displayln "Eof"))
    (return eof)]
   [(Var x)
-   ;; (! (displayln (format "Var ~a" x)))
    (interp-var r s x ds)]
   [(Prim p es)
-   ;; (! (displayln (format "Prim: ~a ~a" p es)))
    (vs <- (interp-env* r s es ds))
-   ;; (! (displayln (format "  interp'ed vs: ~a" vs)))
    (return (interp-prim p vs))]
+  [(DCons c _ es)
+   (interp-env r s (Prim c es) ds)]
   [(If c e1 e2)
-   ;; (! (displayln (format "If: ~a ~a ~a" c e1 e2)))
    (v <- (interp-env r s c ds))
    (if v
        (interp-env r s e1 ds)
        (interp-env r s e2 ds))]
   [(Begin e1 e2)
-   ;; (! (displayln (format "Begin: ~a ~a" e1 e2)))
    (_ <- (interp-env r s e1 ds))
    (interp-env r s e2 ds)]
   [(Let x _ e1 e2)
-   ;; (! (displayln (format "Let: ~a = ~a in ~a" x e1 e2)))
-   ;; (! (displayln (format "  r: ~a" r)))
-   ;; (! (displayln (format "  s: ~a" s)))
-   ;; (! (displayln (format "  extend ~a with thunk" x)))
    (extend x (Delay e1 r))
-   ;; (! (displayln (format "  r: ~a" r)))
-   ;; (! (displayln (format "  s: ~a" s)))
    (interp-env r s e2 ds)]
   [(Lam _ xs e)
-   ;; (! (displayln (format "Lam: ~a ~a" xs e)))
    ;; Allocate a bunch of empty boxes in the store and then use those locations
    ;; when the function is called.
    (new-allocated-locations := extend* xs (map (λ (_) (box #f)) xs))
@@ -94,7 +82,7 @@
    (return
     (λ vs
       (if (= (length xs) (length vs))
-          ;; May need to verify that this fold goes the correct direction.
+          ;; TODO: May need to verify that this fold goes the correct direction.
           (let ([new-r (for/fold ([r original-r])
                                  ([xls (map cons xs new-allocated-locations)])
                          (match xls
@@ -103,12 +91,10 @@
             (interp-env new-r s e ds))
           'err)))]
   [(App e _ es)
-   ;; (! (displayln (format "App: ~a ~a" e es)))
    (f <- (interp-env r s e ds))
    (vs <- (interp-env* r s es ds))
    (return-if (procedure? f) (apply f vs))]
-  [(Match e ps es)
-   ;; (! (displayln (format "Match: ~a ~a ~a" e ps es)))
+  [(Match _ e ps es)
    (v <- (interp-env r s e ds))
    (interp-match r s v ps es ds)])
 
@@ -156,17 +142,6 @@
    (r <- (interp-match-pat r s p p v))
    (interp-match-pats r s ps vs)])
 
-;; [Listof Pat] [Listof Val] Env -> [Maybe Env]
-#;(define (interp-match-pats ps vs r s)
-  (match ps
-    ['() r]
-    [(cons p ps)
-     (match vs
-       [(cons v vs)
-        (match (interp-match-pat p v r s)
-          [#f #f]
-          [r1 (interp-match-pats ps vs r1)])])]))
-
 ;; Env Sto Id [Listof Defn] -> (Pairof Answer Sto)
 (define (interp-var r s x ds)
   (match (lookup-env r x)
@@ -180,17 +155,10 @@
                               #:env r #:sto s
                               #:matching es
                               ds)
-  ['()
-   ;; (! (displayln "interp-env*: empty input"))
-   (return '())]
+  ['() (return '())]
   [(cons e es)
-   ;; (! (displayln (format "interp-env*: ~a and ~a" e es)))
-   ;; (! (displayln (format "v <- (interp-env ~a ~a ~a ~a)" r s e ds)))
    (v <- (interp-env r s e ds))
-   ;; (! (displayln (format "interp-env*: interp'ed v: ~a" v)))
-   ;; (! (displayln (format "vs <- (interp-env ~a ~a ~a ~a)" r s es ds)))
    (vs <- (interp-env* r s es ds))
-   ;; (! (displayln (format "interp-env*: interp'ed vs: ~a" vs)))
    (return (cons v vs))])
 
 ;; Defns Symbol -> [Maybe Defn]
