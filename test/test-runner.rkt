@@ -481,7 +481,42 @@
                      '(match 8
                         [(Boo 'y) 0]
                         [_ 1]))
-                1))
+                1)
+
+  ;; Nab examples
+  (check-equal? (run '(let ([x (+ 1 #f)]) 42)) 42)
+  (check-equal? (run '(let ([x (+ 1 #f)]) (begin x 42))) 'err)
+  
+  (check-equal? (run '(define (ones) (cons 1 (ones)))
+                     '(define (take n lst)
+                        (if (zero? n)
+                            '()
+                            (cons (car lst) (take (sub1 n) (cdr lst)))))
+                     '(take 5 (ones)))
+                '(1 1 1 1 1))
+
+  (check-equal? (run '(define (filter f lst)
+                        (match lst
+                          ['() '()]
+                          [(cons x xs)
+                           (let ([fxs (filter f xs)])
+                             (if (f x)
+                                 (cons x fxs)
+                                 fxs))]))
+                     '(define (take n lst)
+                        (if (zero? n)
+                            '()
+                            (cons (car lst) (take (sub1 n) (cdr lst)))))
+                     '(define (even? n)
+                        (match n
+                          [0 #t]
+                          [1 #f]
+                          [_ (even? (- n 2))]))
+                     '(define (nats n)
+                        (cons n (nats (add1 n))))
+                     '(take 5 (filter even? (nats 0))))
+                '(0 2 4 6 8))
+  )
 
 (define (test-runner-io run)
   ;; Evildoer examples
@@ -532,8 +567,8 @@
                         (begin (write-byte 97)
                                (car x))))
                 (cons 1 "a"))
+  
   ;; Iniquity examples
-  #|
   (check-equal? (run ""
                      '(define (print-alphabet i)
                         (if (zero? i)
@@ -542,4 +577,38 @@
                                    (print-alphabet (sub1 i)))))
                      '(print-alphabet 26))
                 (cons (void) "abcdefghijklmnopqrstuvwxyz"))
-|#)
+
+  ;; Nab examples
+  (check-equal? (run "ab"
+                     '(let ([x (read-byte)])
+                        (let ([y (read-byte)])
+                          (cons (integer->char y) (integer->char x)))))
+                (cons (cons #\a #\b) ""))
+  
+  (check-equal? (run ""
+                     '(define (map f lst)
+                        (match lst
+                          ['() '()]
+                          [(cons x xs) (cons (f x) (map f xs))]))
+                     '(define (print c)
+                        (write-byte (char->integer c)))
+                     '(begin (map print '(#\h #\e #\l #\l #\o))
+                             (void)))
+                (cons (void) ""))
+  
+  (check-equal? (run ""
+                     '(define (map f lst)
+                        (match lst
+                          ['() '()]
+                          [(cons x xs) (cons (f x) (map f xs))]))
+                     '(define (print c)
+                        (write-byte (char->integer c)))
+                     '(define (collect lst)
+                        (match lst
+                          ['() (void)]
+                          [(cons x xs)
+                           (begin x (collect xs))]))
+                     '(begin (collect (map print '(#\h #\e #\l #\l #\o)))
+                             (void)))
+                (cons (void) "hello"))
+  )
