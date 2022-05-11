@@ -28,6 +28,7 @@
     [(If e1 e2 e3)      (append (lambdas-e e1) (lambdas-e e2) (lambdas-e e3))]
     [(Begin e1 e2)      (append (lambdas-e e1) (lambdas-e e2))]
     [(Let x f e1 e2)    (append (thunk-lambdas (list f) (list e1)) (append (lambdas-e e1) (lambdas-e e2)))]
+    [(Letrec x f e1 e2) (append (thunk-lambdas (list f) (list e1)) (append (lambdas-e e1) (lambdas-e e2)))]
     [(App e1 fs es)     (append (thunk-lambdas fs es) (lambdas-e e1) (append-map lambdas-e es))]
     [(Lam f xs e1)      (cons e (lambdas-e e1))]
     [(Match f e ps es)  (append (thunk-lambdas (list f) (list e)) (append (lambdas-e e) (append-map lambdas-e es)))]

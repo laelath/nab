@@ -26,6 +26,7 @@
     [(If e1 e2 e3)      (compile-if e1 e2 e3 c t?)]
     [(Begin e1 e2)      (compile-begin e1 e2 c t?)]
     [(Let x f e1 e2)    (compile-let x f e1 e2 c t?)]
+    [(Letrec x f e1 e2) (compile-letrec x f e1 e2 c t?)]
     [(App e fs es)      (compile-app e fs es c t?)]
     [(Lam f xs e)       (compile-lam f xs e c)]
     [(Match f e ps es)  (compile-match f e ps es c t?)]))
@@ -84,6 +85,12 @@
 (define (compile-let x f e1 e2 c t?)
   (seq (compile-thunk f e1 c)
        (Push rax)
+       (compile-e e2 (cons x c) t?)
+       (Add rsp 8)))
+
+(define (compile-letrec x f e1 e2 c t?)
+  (seq (Push rbx)
+       (compile-thunk f e1 (cons x c))
        (compile-e e2 (cons x c) t?)
        (Add rsp 8)))
 

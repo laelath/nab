@@ -15,9 +15,10 @@
     [(If e1 e2 e3)      (append (fv* e1) (fv* e2) (fv* e3))]
     [(Begin e1 e2)      (append (fv* e1) (fv* e2))]
     [(Let x f e1 e2)    (append (fv* e1) (remq* (list x) (fv* e2)))]
+    [(Letrec x f e1 e2) (remq* (list x) (append (fv* e1) (fv* e2)))]
     [(App e1 fs es)     (append (fv* e1) (append-map fv* es))]
     [(Lam f xs e)       (remq* xs (fv* e))]
-    [(Match f e ps es)    (append (fv* e) (append-map fv-clause* ps es))]
+    [(Match f e ps es)  (append (fv* e) (append-map fv-clause* ps es))]
     [_                  '()]))
 
 ;; Pat Expr -> [Listof Id]

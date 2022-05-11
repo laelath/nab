@@ -516,6 +516,22 @@
                         (cons n (nats (add1 n))))
                      '(take 5 (filter even? (nats 0))))
                 '(0 2 4 6 8))
+
+  ;; Time Travel!
+  (check-equal? (run '(define (max m n)
+                        (if (< m n) n m))
+                     '(define (foo lst m)
+                        (match lst
+                          ['() (cons m '())]
+                          [(list x) (cons x (cons m '()))]
+                          [(cons x xs)
+                           (match (foo xs m)
+                             [(cons m^ xs^) (cons (max m^ x) (cons m xs^))])]))
+                     '(define (toMax lst)
+                        (letrec ([p (foo lst (car p))])
+                          (cdr p)))
+                     '(toMax '(1 4 2 5 3)))
+                '(5 5 5 5 5))
   )
 
 (define (test-runner-io run)
@@ -584,6 +600,11 @@
                         (let ([y (read-byte)])
                           (cons (integer->char y) (integer->char x)))))
                 (cons (cons #\a #\b) ""))
+
+  (check-equal? (run ""
+                     '(let ([x (begin (write-byte 97) 42)])
+                        (cons x x)))
+                (cons (cons 42 42) "a"))
   
   (check-equal? (run ""
                      '(define (map f lst)
