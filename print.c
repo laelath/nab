@@ -112,23 +112,26 @@ void print_vect(val_vect_t *v)
 
 void print_cons(val_cons_t *cons)
 {
-  print_result_interior(eval_thunk(cons->fst));
+  do {
+    print_result_interior(eval_thunk(cons->fst));
 
-  val_t v = eval_thunk(cons->snd);
+    val_t v = eval_thunk(cons->snd);
 
-  switch (val_typeof(v)) {
-  case T_EMPTY:
-    // nothing
+    switch (val_typeof(v)) {
+    case T_EMPTY:
+      // nothing
+      return;
+    case T_CONS:
+      putchar(' ');
+      cons = val_unwrap_cons(v);
+      continue;
+    default:
+      printf(" . ");
+      return print_result_interior(v);
+    }
+
     break;
-  case T_CONS:
-    printf(" ");
-    print_cons(val_unwrap_cons(v));
-    break;
-  default:
-    printf(" . ");
-    print_result_interior(v);
-    break;
-  }
+  } while (1);
 }
 
 void print_str(val_str_t* s)
