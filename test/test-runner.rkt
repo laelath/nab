@@ -517,6 +517,18 @@
                      '(take 5 (filter even? (nats 0))))
                 '(0 2 4 6 8))
 
+  ;; Non-strict Y-Combinator
+  (check-equal? (run '(((λ (t)
+                          ((λ (f) (t (f f)))
+                           (λ (f) (t (f f)))))
+                        (λ (tri)
+                          (λ (n)
+                            (if (zero? n)
+                                0
+                                (+ n (tri (sub1 n)))))))
+                       36))
+                666)
+
   ;; Time Travel!
   (check-equal? (run '(define (max m n)
                         (if (< m n) n m))
