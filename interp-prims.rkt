@@ -1,5 +1,6 @@
 #lang racket
-(require "ast.rkt")
+(require "ast.rkt"
+         "do.rkt")
 (provide interp-prim StructVal)
 
 ;; type Struct = (StructVal Symbol (Vectorof Value))
@@ -74,7 +75,7 @@
          (vector-ref vs i)
          'err)]
     ;; OpN
-    [(cons 'make-struct (cons (? symbol? n) vs))
+    #;[(cons 'make-struct (cons (? symbol? n) vs))
      (StructVal n (list->vector vs))]
     [_ 'err]))
 
