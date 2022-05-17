@@ -16,8 +16,6 @@
 (define r15 'r15) ; stack pad (non-volatile)
 (define rsp 'rsp) ; stack
 
-;; TODO: making strings should force the length argument
-
 ;; TODO: remove filth
 (define (force-thunk)
   (let ([l (gensym 'thunk_resolved)]
@@ -390,7 +388,7 @@
           (Add r8 rax)
           (Mov 'eax (Offset r8 8))
           (Sal rax char-shift)
-          (Or rax type-char))] ;; TODO: force thunk
+          (Or rax type-char))]
 
     ['struct?
      (let ((f (gensym))
