@@ -149,8 +149,8 @@
    #;(return-if (procedure? f) (apply f es))]
   [(Match _ e ps es)
    (! (displayln-debug "**  Match"))
-   (v <- (interp-env r s e ds))
-   (interp-match r s v ps es ds)]
+   ;; (v <- (interp-env r s e ds))
+   (interp-match r s (Delay e r) ps es ds)]
   [_
    (! (displayln-debug (format "error: received unknown input: ~a" e)))
    'err])
@@ -234,70 +234,93 @@
        ((return-error)))]
   [_
    ;; Any other DCons is passed through to interp-prim.
+   (! (displayln (format "DCons: ~a" dc)))
    (! (displayln-debug (format "  interp-dcons: ~a" dc)))
    (vs <- (interp-env* r s es ds))
    ;; FIXME: Check this is correct. Call interp-special-prims?
    (return (interp-prim dc vs))])
 
-;; Env Sto Value (Listof Pat) (Listof Expr) Defns -> (Pairof Value Sto) | 'err
-(define (interp-match r s v ps es ds)
+;; Env Sto Thunk (Listof Pat) (Listof Expr) Defns -> (Pairof Value Sto) | 'err
+(define (interp-match r s t ps es ds)
   (match* (ps es)
     [('() '()) 'err]
     [((cons p ps) (cons e es))
-     (match (interp-match-pat r s p v ds)
-       [#f (interp-match r s v ps es ds)]
+     (match (interp-match-pat r s p t ds)
+       [#f (interp-match r s t ps es ds)]
        [(cons r s)  (interp-env r s e ds)])]))
 
-;; Env Sto Pat Value -> Maybe (Pairof Env Sto)
+(define (interp-thunk s t ds)
+  (match t
+    [(Delay e r)
+     (interp-env r s e ds)]
+    [_ (cons t s)]))
+
+;; Env Sto Pat Thunk -> Maybe (Pairof Env Sto)
 (define-match-do (interp-match-pat #:error-value #f
                                    #:env r #:sto s
                                    #:matching p
-                                   v ds)
-  [(PWild) (return r)]
+                                   t ds)
+  [(PWild)
+   (! (displayln-debug "$$ PWild"))
+   (return r)]
   [(PVar x)
    (! (displayln-debug (format "$$ PVar ~a" x)))
-   (if (Address? v)
-       ((! (displayln-debug (format "     found Address: ~a" v)))
-        (v <- (lookup-sto s v ds))
-        (extend x v)
+   (if (Address? t)
+       ((r = (extend-env r x t))
         (return r))
-       ((! (displayln-debug (format "     did not find address: ~a" v)))
-        (extend x v)
+       ((extend x t)
         (return r)))]
-  [(PSymb sym) (return-if (eq? sym v) r)]
-  [(PStr str) (return-if (and (string? v) (string=? str v)) r)]
-  [(PLit l) (return-if (eqv? l v) r)]
+  [(PSymb sym)
+   (! (displayln-debug (format "$$ PSymb ~a" sym)))
+   (v <- (interp-thunk s t ds))
+   (return-if (eq? sym v) r)]
+  [(PStr str)
+   (! (displayln-debug (format "$$ PStr ~a" str)))
+   (v <- (interp-thunk s t ds))
+   (return-if (and (string? v) (string=? str v)) r)]
+  [(PLit l)
+   (! (displayln-debug (format "$$ PLit ~a" l)))
+   (v <- (interp-thunk s t ds))
+   (! (displayln-debug (format "   PLit: got v: ~a" v)))
+   (return-if (eqv? l v) r)]
   [(PBox p)
+   (! (displayln-debug (format "$$ PBox ~a" p)))
+   (v <- (interp-thunk s t ds))
    ((box v) = v)
    (interp-match-pat r s p v ds)]
   [(PCons p1 p2)
+   (! (displayln-debug (format "$$ PCons ~a ~a" p1 p2)))
+   (v <- (interp-thunk s t ds))
    ((cons v1 v2) = v)
    (r <- (interp-match-pat r s p1 v1 ds))
    (interp-match-pat r s p2 v2 ds)]
   [(PAnd p1 p2)
+   (! (displayln-debug (format "$$ PAnd ~a ~a" p1 p2)))
+   (v <- (interp-thunk s t ds))
    (r <- (interp-match-pat r s p1 v ds))
    (interp-match-pat r s p2 v ds)]
-  [(PStruct t ps)
+  [(PStruct pn ps)
    (! (displayln-debug "$$ PStruct"))
+   (v <- (interp-thunk s t ds))
    (! (displayln-debug (format "     v: ~a" v)))
-   ((StructVal n vs) = v)
-   (! (displayln-debug (format "     deconstructed v as (StructVal ~a ~a)" n vs)))
-   (if (eq? t n)
+   ((StructVal sn vs) = v)
+   (! (displayln-debug (format "     deconstructed v as (StructVal ~a ~a)" sn vs)))
+   (if (eq? pn sn)
        ((! (displayln-debug "     matched struct type"))
         (interp-match-pats r s ps (vector->list vs) ds))
        ((! (displayln-debug "     failed to match struct type"))
         (return-error)))])
 
-;; Env Sto (Listof Pat) (Listof Value) -> Maybe (Pairof Env Sto)
+;; Env Sto (Listof Pat) (Listof Thunk) -> Maybe (Pairof Env Sto)
 (define-match-do (interp-match-pats #:error-value #f
                                     #:env r #:sto s
                                     #:matching ps
-                                    vs ds)
+                                    ts ds)
   ['() (return r)]
   [(cons p ps)
-   ((cons v vs) = vs)
-   (r <- (interp-match-pat r s p v ds))
-   (interp-match-pats r s ps vs ds)])
+   ((cons t ts) = ts)
+   (r <- (interp-match-pat r s p t ds))
+   (interp-match-pats r s ps ts ds)])
 
 ;; Env Sto Id Defns -> (Pairof Value Sto) | 'err
 (define (interp-var r s x ds)
