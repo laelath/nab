@@ -253,8 +253,8 @@
   [(PWild) (return r)]
   [(PVar x) (extend x v)
             (return r)]
-  [(PSymb s) (return-if (eq? s v) r)]
-  [(PStr s) (return-if (and (string? v) (string=? s v)) r)]
+  [(PSymb sym) (return-if (eq? sym v) r)]
+  [(PStr str) (return-if (and (string? v) (string=? str v)) r)]
   [(PLit l) (return-if (eqv? l v) r)]
   [(PBox p)
    ((box v) = v)
@@ -280,7 +280,7 @@
   ['() (return r)]
   [(cons p ps)
    ((cons v vs) = vs)
-   (r <- (interp-match-pat r s p p v))
+   (r <- (interp-match-pat r s p v))
    (interp-match-pats r s ps vs)])
 
 ;; Env Sto Id Defns -> (Pairof Value Sto) | 'err
