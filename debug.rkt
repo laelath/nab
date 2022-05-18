@@ -2,7 +2,7 @@
 
 (provide displayln-debug)
 
-(define debug #t)
+(define debug #f)
 
 (define (displayln-debug . args)
   (if debug
