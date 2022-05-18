@@ -234,7 +234,7 @@
        ((return-error)))]
   [_
    ;; Any other DCons is passed through to interp-prim.
-   (! (displayln (format "DCons: ~a" dc)))
+   (! (displayln-debug (format "DCons: ~a" dc)))
    (! (displayln-debug (format "  interp-dcons: ~a" dc)))
    (vs <- (interp-env* r s es ds))
    ;; FIXME: Check this is correct. Call interp-special-prims?
@@ -246,8 +246,19 @@
     [('() '()) 'err]
     [((cons p ps) (cons e es))
      (match (interp-match-pat r s p t ds)
-       [#f (interp-match r s t ps es ds)]
-       [(cons r s)  (interp-env r s e ds)])]))
+       [(cons #f s)
+        (displayln-debug "interp-match: in #f-cons, recursing...")
+        (begin0
+            (interp-match r s t ps es ds)
+          (displayln-debug "interp-match: in #f-cons, completed recursion"))]
+       [(cons r s)
+        (displayln-debug "interp-match: in normal cons")
+        (displayln-debug (format "interp-match: r: ~a" (print-list r 17)))
+        (displayln-debug (format "interp-match: s: ~a" (print-list s 17)))
+        (begin0
+            (interp-env r s e ds)
+          (displayln-debug "interp-match: in normal cons, completed recursion"))]
+       [x (displayln (format "interp-match ERROR: ~a" x))])]))
 
 (define (interp-thunk s t ds)
   (match t
@@ -255,8 +266,9 @@
      (interp-env r s e ds)]
     [_ (cons t s)]))
 
-;; Env Sto Pat Thunk -> Maybe (Pairof Env Sto)
+;; Env Sto Pat Thunk -> (Pairof (Maybe Env) Sto) | 'err
 (define-match-do (interp-match-pat #:error-value #f
+                                   #:preserve-store #t
                                    #:env r #:sto s
                                    #:matching p
                                    t ds)
@@ -267,8 +279,10 @@
    (! (displayln-debug (format "$$ PVar ~a" x)))
    (if (Address? t)
        ((r = (extend-env r x t))
+        (! (displayln-debug (format "   PVar: Address: extended env: ~a" r)))
         (return r))
        ((extend x t)
+        (! (displayln-debug (format "   PVar: non-Address: extended env: ~a" r)))
         (return r)))]
   [(PSymb sym)
    (! (displayln-debug (format "$$ PSymb ~a" sym)))
@@ -290,15 +304,26 @@
    (interp-match-pat r s p v ds)]
   [(PCons p1 p2)
    (! (displayln-debug (format "$$ PCons ~a ~a" p1 p2)))
+   (! (displayln-debug (format "   PCons: forcing thunk: ~a" t)))
    (v <- (interp-thunk s t ds))
+   (! (displayln-debug (format "   PCons: got thunk value: ~a" v)))
    ((cons v1 v2) = v)
-   (r <- (interp-match-pat r s p1 v1 ds))
-   (interp-match-pat r s p2 v2 ds)]
+   (! (displayln-debug "   PCons: recursing on left element"))
+   (maybe-r <- (interp-match-pat r s p1 v1 ds))
+   (! (displayln-debug (format "   PCons got maybe-r: ~a" maybe-r)))
+   (if maybe-r
+       ((! (displayln-debug "   PCons: recursing on right element"))
+        (interp-match-pat maybe-r s p2 v2 ds))
+       ((return-error)))
+   #;(return-if maybe-r (interp-match-pat maybe-r s p2 v2 ds))]
   [(PAnd p1 p2)
    (! (displayln-debug (format "$$ PAnd ~a ~a" p1 p2)))
    (v <- (interp-thunk s t ds))
-   (r <- (interp-match-pat r s p1 v ds))
-   (interp-match-pat r s p2 v ds)]
+   (maybe-r <- (interp-match-pat r s p1 v ds))
+   (if maybe-r
+       ((interp-match-pat r s p2 v ds))
+       ((return-error)))
+   #;(return-if maybe-r (interp-match-pat r s p2 v ds))]
   [(PStruct pn ps)
    (! (displayln-debug "$$ PStruct"))
    (v <- (interp-thunk s t ds))
@@ -311,16 +336,25 @@
        ((! (displayln-debug "     failed to match struct type"))
         (return-error)))])
 
-;; Env Sto (Listof Pat) (Listof Thunk) -> Maybe (Pairof Env Sto)
+;; Env Sto (Listof Pat) (Listof Thunk) -> (Pairof (Maybe Env) Sto) | 'err
 (define-match-do (interp-match-pats #:error-value #f
+                                    #:preserve-store #t
                                     #:env r #:sto s
                                     #:matching ps
                                     ts ds)
   ['() (return r)]
   [(cons p ps)
    ((cons t ts) = ts)
-   (r <- (interp-match-pat r s p t ds))
-   (interp-match-pats r s ps ts ds)])
+   (! (displayln-debug "interp-match-pats: in cons, matching pat"))
+   (maybe-r <- (interp-match-pat r s p t ds))
+   (! (displayln-debug (format "interp-match-pats: pat matched, got maybe-r: ~a" maybe-r)))
+   (if maybe-r
+       ((result <- (interp-match-pats maybe-r s ps ts ds))
+        (! (displayln-debug (format "interp-match-pats: got result: ~a" result)))
+        (return result))
+       ((! (displayln-debug "interp-match-pats: failed match, so returning error"))
+        (return-error)))
+   #;(return-if maybe-r (interp-match-pats maybe-r s ps ts ds))])
 
 ;; Env Sto Id Defns -> (Pairof Value Sto) | 'err
 (define (interp-var r s x ds)

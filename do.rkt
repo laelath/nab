@@ -81,39 +81,47 @@
 ;;                                     result.
 (define-syntax (do-block stx)
   (syntax-parse stx
-    #:datum-literals (! <- = := extend extend* return return-if)
+    #:datum-literals (! <- = := extend extend* return return-if return-error)
     ;; (! e) d ...+
-    [(_ (~seq #:error-value errv) (~seq #:env r) (~seq #:sto s)
+    [(_ (~seq #:error-value errv) (~seq #:preserve-store preserve) (~seq #:env r) (~seq #:sto s)
         (! expr) exps ...+)
-     #'(begin expr (do-block #:error-value errv #:env r #:sto s exps ...))]
+     #'(begin expr (do-block #:error-value errv #:preserve-store preserve #:env r #:sto s exps ...))]
     ;; (v <- e) d ...+
-    [(_ (~seq #:error-value errv) (~seq #:env r) (~seq #:sto s)
+    [(_ (~seq #:error-value errv) (~seq #:preserve-store preserve) (~seq #:env r) (~seq #:sto s)
         (v <- expr) exps ...+)
      #'(match expr
          [errv
           (displayln-debug "    <- assignment matched errv")
-          errv]
+          (if preserve
+              (cons errv s)
+              errv)]
          [(cons v s)
           (displayln-debug "    <- assignment matched cons")
-          (do-block #:error-value errv #:env r #:sto s exps ...)]
+          (do-block #:error-value errv #:preserve-store preserve #:env r #:sto s exps ...)]
          [_
           (displayln-debug (format "    <- assignment matched nothing: ~a" expr))
-          errv])]
+          (if preserve
+              (cons errv s)
+              errv)])]
     ;; (x = e) d ...+
-    [(_ (~seq #:error-value errv) (~seq #:env r) (~seq #:sto s)
+    [(_ (~seq #:error-value errv) (~seq #:preserve-store preserve) (~seq #:env r) (~seq #:sto s)
         (p = expr) exps ...+)
      #'(match expr
          [errv
           (displayln-debug "    = assignment matched errv")
-          errv]
+          (if preserve
+              (cons errv s)
+              errv)]
          [p
           (displayln-debug "    = assignment matched pattern")
-          (do-block #:error-value errv #:env r #:sto s exps ...)]
+          (do-block #:error-value errv #:preserve-store preserve #:env r #:sto s exps ...)]
          [_
           (displayln-debug (format "    = assignment matched nothing: ~a" expr))
-          errv])]
+          (if preserve
+              (cons errv s)
+              errv)])]
     ;; (ls := extend* xs vs) d ...+
-    [(_ (~seq #:error-value errv) (~seq #:env r) (~seq #:sto s)
+    [(_ (~seq #:error-value errv) (~seq #:preserve-store preserve) (~seq #:env r) (~seq #:sto s)
         (new-allocated-locations := extend* xs vs) exps ...+)
      #'(begin
          (displayln-debug "%% extend*")
@@ -135,57 +143,89 @@
            (displayln-debug (format "%%   s: ~a" s))
            (displayln-debug (format "%%   ls: ~a" ls))
            (match-let ([new-allocated-locations ls])
-             (do-block #:error-value errv #:env r #:sto s exps ...))))]
+             (do-block #:error-value errv #:preserve-store preserve #:env r #:sto s exps ...))))]
     ;; (extend* xs vs) d ...+
-    [(_ (~seq #:error-value errv) (~seq #:env r) (~seq #:sto s)
+    [(_ (~seq #:error-value errv) (~seq #:preserve-store preserve) (~seq #:env r) (~seq #:sto s)
         (extend* xs vs) exps ...+)
-     #'(do-block #:error-value errv #:env r #:sto s (_ := extend* xs vs) exps ...)]
+     #'(do-block #:error-value errv #:preserve-store preserve #:env r #:sto s (_ := extend* xs vs) exps ...)]
     ;; (l := extend x v) d ...+
-    [(_ (~seq #:error-value errv) (~seq #:env r) (~seq #:sto s)
+    [(_ (~seq #:error-value errv) (~seq #:preserve-store preserve) (~seq #:env r) (~seq #:sto s)
         (new-allocated-location := extend x v) exps ...+)
-     #'(do-block #:error-value errv #:env r #:sto s ((cons new-allocated-location _) := extend* (list x) (list v)) exps ...)]
+     #'(do-block #:error-value errv #:preserve-store preserve #:env r #:sto s ((cons new-allocated-location _) := extend* (list x) (list v)) exps ...)]
     ;; (extend x v) d ...+
-    [(_ (~seq #:error-value errv) (~seq #:env r) (~seq #:sto s)
+    [(_ (~seq #:error-value errv) (~seq #:preserve-store preserve) (~seq #:env r) (~seq #:sto s)
         (extend x v) exps ...+)
-     #'(do-block #:error-value errv #:env r #:sto s (extend* (list x) (list v)) exps ...)]
+     #'(do-block #:error-value errv #:preserve-store preserve #:env r #:sto s (extend* (list x) (list v)) exps ...)]
     ;; (if c (e1s ...+) (e2s ...+))
-    [(_ (~seq #:error-value errv) (~seq #:env r) (~seq #:sto s)
+    [(_ (~seq #:error-value errv) (~seq #:preserve-store preserve) (~seq #:env r) (~seq #:sto s)
         ((~datum if) c (e1s ...+) (e2s ...+)))
      #'(if c
-           (do-block #:error-value errv #:env r #:sto s e1s ...)
-           (do-block #:error-value errv #:env r #:sto s e2s ...))]
+           (do-block #:error-value errv #:preserve-store preserve #:env r #:sto s e1s ...)
+           (do-block #:error-value errv #:preserve-store preserve #:env r #:sto s e2s ...))]
     ;; (return v:id)
-    [(_ (~seq #:error-value errv) (~seq #:env r) (~seq #:sto s)
+    [(_ (~seq #:error-value errv) (~seq #:preserve-store preserve) (~seq #:env r) (~seq #:sto s)
         (return v:id))
-     #'(cons v s)]
+     #'(begin
+         (displayln-debug (format "(return v:id) with v: ~a" v))
+         (displayln-debug (format "(return v:id) with (cons v s): ~a" (cons v s)))
+         (match-let ([(cons q1 q2) (cons v s)])
+           (displayln-debug (format "(return v:id) with q1: ~a" q1))
+           (displayln-debug (format "(return v:id) with q2: ~a" q2))
+           (cons v s)))]
     ;; (return e)
-    [(_ (~seq #:error-value errv) (~seq #:env r) (~seq #:sto s)
+    [(_ (~seq #:error-value errv) (~seq #:preserve-store preserve) (~seq #:env r) (~seq #:sto s)
         (return e:expr))
-     #'(cons e s)]
+     #'(begin
+         (displayln-debug (format "(return e) with e: ~a" e))
+         (cons e s))]
     ;; (return-if c v:id)
-    [(_ (~seq #:error-value errv) (~seq #:env r) (~seq #:sto s)
+    [(_ (~seq #:error-value errv) (~seq #:preserve-store preserve) (~seq #:env r) (~seq #:sto s)
         (return-if c v:id))
-     #'(if c (cons v s) errv)]
+     #'(if c
+           (cons v s)
+           (if preserve
+               (cons errv s)
+               errv))]
     ;; (return-if c e)
-    [(_ (~seq #:error-value errv) (~seq #:env r) (~seq #:sto s)
+    [(_ (~seq #:error-value errv) (~seq #:preserve-store preserve) (~seq #:env r) (~seq #:sto s)
         (return-if c e:expr))
      #'(if c
-           (do-block #:error-value errv #:env r #:sto s (return e))
-           errv)]
+           (begin
+             (displayln-debug (format "return-if: succeeded on ~a" c))
+             (do-block #:error-value errv #:preserve-store preserve #:env r #:sto s (return e)))
+           (begin
+             (displayln-debug "return-if: failed, returning")
+             (displayln-debug (format "return-if: errv: ~a" errv))
+             (displayln-debug (format "return-if: (cons errv s): ~a" (cons errv s)))
+             (if preserve
+                 (cons errv s)
+                 errv)))]
     ;; (return-error)
-    [(_ (~seq #:error-value errv) (~seq #:env r) (~seq #:sto s)
+    [(_ (~seq #:error-value errv) (~seq #:preserve-store preserve) (~seq #:env r) (~seq #:sto s)
         (return-error))
-     #'errv]
+     #'(if preserve
+           (cons errv s)
+           errv)]
     ;; e
-    [(_ (~seq #:error-value errv) (~seq #:env r) (~seq #:sto s) expr)
+    [(_ (~seq #:error-value errv) (~seq #:preserve-store preserve) (~seq #:env r) (~seq #:sto s) expr)
      #'expr]))
 
 (define-syntax (match-do stx)
   (syntax-parse stx
     [(_ (~seq #:error-value errv) (~seq #:env r) (~seq #:sto s)
+        expr clauses ...+)
+     #'(match-do #:error-value errv #:preserve-store #f #:env r #:sto s expr clauses ...)]
+    [(_ (~seq #:error-value errv) (~seq #:preserve-store preserve) (~seq #:env r) (~seq #:sto s)
         expr [pat body ...+] ...+)
      #'(match expr
-         [pat (do-block #:error-value errv #:env r #:sto s body ...)] ...)]))
+         [pat (do-block #:error-value errv #:preserve-store preserve #:env r #:sto s body ...)] ...)]))
+
+(define (print-list lst [indentation 0])
+  (let ([indent (make-string indentation #\space)])
+    (string-append
+     "[ "
+     (string-join (map (λ (x) (format "~a" x)) lst) (string-append "\n" indent "; "))
+     "\n" indent "]")))
 
 (define-syntax (define-match-do stx)
   (syntax-parse stx
@@ -201,11 +241,24 @@
                  (~seq #:env r)
                  (~seq #:sto s)
                  (~seq #:matching m) . args) clauses ...+)
+     #'(define-match-do (name
+                         #:error-value errv
+                         #:preserve-store #f
+                         #:env r
+                         #:sto s
+                         #:matching m
+                         . args)
+         clauses ...)]
+    [(_ (name:id (~seq #:error-value errv)
+                 (~seq #:preserve-store preserve)
+                 (~seq #:env r)
+                 (~seq #:sto s)
+                 (~seq #:matching m) . args) clauses ...+)
      #'(define (name r s m . args)
          (displayln-debug (symbol->string 'name))
-         (displayln-debug (format "    env: ~a" r))
-         (displayln-debug (format "    sto: ~a" s))
+         (displayln-debug (format "    env: ~a" (print-list r 9)))
+         (displayln-debug (format "    sto: ~a" (print-list s 9)))
          (displayln-debug (format "    matching: ~a" m))
          (begin0
-             (match-do #:error-value errv #:env r #:sto s m clauses ...)
-           (displayln-debug "returning...")))]))
+             (match-do #:error-value errv #:preserve-store preserve #:env r #:sto s m clauses ...)
+           (displayln-debug (format "returning from ~a..." (symbol->string 'name)))))]))
