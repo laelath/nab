@@ -31,6 +31,7 @@
 
 ;; Sto Address Defns -> (Pairof Value Sto) | 'err
 (define (lookup-sto s l ds)
+  ;; FIXME: Remove mutation.
   (displayln-debug "lookup-sto")
   (displayln-debug (format "lookup-sto: sto: ~a" s))
   (displayln-debug (format "lookup-sto: addr: ~a" l))
@@ -113,44 +114,26 @@
    (extend x (Delay e1 r))
    (interp-env r s e2 ds)]
   [(Lam _ xs e)
+   ;; FIXME: Rewrite Lam to extend store INSIDE the lambda.
    (! (displayln-debug "**  Lam"))
-   ;; Allocate a bunch of empty boxes in the store and then use those locations
-   ;; when the function is called.
-   (! (displayln-debug (format "    Lam: initial sto: ~a" s)))
-   ;; FIXME: Maybe should just be [#f] instead of [(box #f)].
-   (new-allocated-locations := extend* xs (map (λ (_) (box #f)) xs))
-   (! (displayln-debug (format "    Lam: locations added: ~a" new-allocated-locations)))
-   (! (displayln-debug (format "    Lam: extended sto: ~a" s)))
-   ;; FIXME: Should this be saved before it's extended?
-   (original-r = r)
-   (! (displayln-debug (format "    Lam: original env saved: ~a" original-r)))
    (return
     (λ (s)
-      (displayln-debug (format "(inside sto-lambda with sto: ~a)" s))
+      (displayln-debug "(accepted store in lambda)")
       (λ vs
-       (displayln-debug "(inside inner lambda)")
-       (if (= (length xs) (length vs))
-           ;; TODO: May need to verify that this fold goes the correct direction.
-           (let ([new-r (for/fold ([r original-r])
-                                  ([xls (map cons xs new-allocated-locations)])
-                          (displayln-debug (format "    extending env: ~a" r))
-                          (displayln-debug (format "    using xls: ~a" xls))
-                          (match xls
-                            [(cons x l)
-                             (extend-env r x l)]))])
-             (for ([vls (map cons vs new-allocated-locations)])
-               (displayln-debug (format "    updating sto: ~a" s))
-               (displayln-debug (format "    using vls: ~a" vls))
-               (match vls
-                 [(cons v l)
-                  (update-sto! s l v)]))
-             (displayln-debug (format "  lambda env: ~a" new-r))
-             (displayln-debug (format "  lambda sto: ~a" s))
-             (displayln-debug (format "  lambda body: ~a" e))
-             (interp-env new-r s e ds))
-           (begin
-             (displayln-debug "  lambda received incompatible arguments")
-             'err)))))]
+        (displayln-debug "(accepted values in lambda)")
+        (if (= (length xs) (length vs))
+            (let-values ([(r s) (for/fold ([r r] [s s])
+                                          ([xv (map cons xs vs)])
+                                  (match-let* ([(cons x v) xv]
+                                               [(cons s l) (extend-sto s v)]
+                                               [r (extend-env r x l)])
+                                    (displayln-debug (format "  inside lambda: extended env with: (~a, ~a)" x l))
+                                    (displayln-debug (format "  inside lambda: extended sto with: (~a, ~a)" l v))
+                                    (values r s)))])
+              (displayln-debug (format "  inside lambda: completed env: ~a" r))
+              (displayln-debug (format "  inside lambda: completed sto: ~a" s))
+              (interp-env r s e ds))
+            'err))))]
   [(App e _ es)
    (! (displayln-debug "**  App"))
    (f <- (interp-env r s e ds))
