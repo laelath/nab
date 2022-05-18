@@ -166,7 +166,11 @@
        ((l = (vector-ref vs index))
         (lookup-sto s l ds))
        ((return-error)))]
-  [_ (return (interp-prim p vs))])
+  [_
+   (result = (interp-prim p vs))
+   (if (eq? result 'err)
+       ((return-error))
+       ((return result)))])
 
 ;; Env Sto DC (Listof Expr) Defns -> (Pairof Value Sto) | 'err
 (define-match-do (interp-dcons #:error-value 'err
