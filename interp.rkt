@@ -114,7 +114,6 @@
    (extend x (Delay e1 r))
    (interp-env r s e2 ds)]
   [(Lam _ xs e)
-   ;; FIXME: Rewrite Lam to extend store INSIDE the lambda.
    (! (displayln-debug "**  Lam"))
    (return
     (λ (s)
