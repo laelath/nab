@@ -241,7 +241,7 @@
   (match* (ps es)
     [('() '()) 'err]
     [((cons p ps) (cons e es))
-     (match (interp-match-pat r s p v)
+     (match (interp-match-pat r s p v ds)
        [#f (interp-match r s v ps es ds)]
        [(cons r s)  (interp-env r s e ds)])]))
 
@@ -249,39 +249,52 @@
 (define-match-do (interp-match-pat #:error-value #f
                                    #:env r #:sto s
                                    #:matching p
-                                   v)
+                                   v ds)
   [(PWild) (return r)]
-  [(PVar x) (extend x v)
-            (return r)]
+  [(PVar x)
+   (! (displayln-debug (format "$$ PVar ~a" x)))
+   (if (Address? v)
+       ((! (displayln-debug (format "     found Address: ~a" v)))
+        (v <- (lookup-sto s v ds))
+        (extend x v)
+        (return r))
+       ((! (displayln-debug (format "     did not find address: ~a" v)))
+        (extend x v)
+        (return r)))]
   [(PSymb sym) (return-if (eq? sym v) r)]
   [(PStr str) (return-if (and (string? v) (string=? str v)) r)]
   [(PLit l) (return-if (eqv? l v) r)]
   [(PBox p)
    ((box v) = v)
-   (interp-match-pat r s p v)]
+   (interp-match-pat r s p v ds)]
   [(PCons p1 p2)
    ((cons v1 v2) = v)
-   (r <- (interp-match-pat r s p1 v1))
-   (interp-match-pat r s p2 v2)]
+   (r <- (interp-match-pat r s p1 v1 ds))
+   (interp-match-pat r s p2 v2 ds)]
   [(PAnd p1 p2)
-   (r <- (interp-match-pat r s p1 v))
-   (interp-match-pat r s p2 v)]
+   (r <- (interp-match-pat r s p1 v ds))
+   (interp-match-pat r s p2 v ds)]
   [(PStruct t ps)
+   (! (displayln-debug "$$ PStruct"))
+   (! (displayln-debug (format "     v: ~a" v)))
    ((StructVal n vs) = v)
+   (! (displayln-debug (format "     deconstructed v as (StructVal ~a ~a)" n vs)))
    (if (eq? t n)
-       ((interp-match-pats r s ps (vector->list vs)))
-       ((return-error)))])
+       ((! (displayln-debug "     matched struct type"))
+        (interp-match-pats r s ps (vector->list vs) ds))
+       ((! (displayln-debug "     failed to match struct type"))
+        (return-error)))])
 
 ;; Env Sto (Listof Pat) (Listof Value) -> Maybe (Pairof Env Sto)
 (define-match-do (interp-match-pats #:error-value #f
                                     #:env r #:sto s
                                     #:matching ps
-                                    vs)
+                                    vs ds)
   ['() (return r)]
   [(cons p ps)
    ((cons v vs) = vs)
-   (r <- (interp-match-pat r s p v))
-   (interp-match-pats r s ps vs)])
+   (r <- (interp-match-pat r s p v ds))
+   (interp-match-pats r s ps vs ds)])
 
 ;; Env Sto Id Defns -> (Pairof Value Sto) | 'err
 (define (interp-var r s x ds)
