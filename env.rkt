@@ -17,5 +17,5 @@
        [#f (begin (displayln-debug "  continuing...") (lookup-env env x))])]))
 
 ;; Env Variable Address -> Env
-(define (extend-env r x i)
-  (cons (list x i) r))
+(define (extend-env r x l)
+  (cons (list x l) r))
